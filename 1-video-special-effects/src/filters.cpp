@@ -132,7 +132,7 @@ int sepiaTone(cv::Mat &src, cv::Mat &dst, bool applyVignetting) {
 }
 
 // Task 6: 5x5 Gaussian blur (naive implementation)
-int blur5x5_naive(cv::Mat &src, cv::Mat &dst) {
+int blur5x5_1(cv::Mat &src, cv::Mat &dst) {
     // Check if source is valid 3-channel color image
     if (src.empty() || src.channels() != 3) {
         std::cerr << "Error: Source must be a 3-channel color image" << std::endl;
@@ -188,7 +188,7 @@ int blur5x5_naive(cv::Mat &src, cv::Mat &dst) {
 }
 
 // Task 6: 5x5 Gaussian blur (optimized with separable filters)
-int blur5x5_sep(cv::Mat &src, cv::Mat &dst) {
+int blur5x5_2(cv::Mat &src, cv::Mat &dst) {
     if (src.empty() || src.channels() != 3) {
         std::cerr << "Error: Source must be a 3-channel color image" << std::endl;
         return -1;
@@ -472,7 +472,7 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels) {
     
     // Step 1: Blur the image using separable blur filter
     cv::Mat blurred;
-    if (blur5x5_sep(src, blurred) != 0) {
+    if (blur5x5_2(src, blurred) != 0) {
         std::cerr << "Error: Blur operation failed" << std::endl;
         return -1;
     }

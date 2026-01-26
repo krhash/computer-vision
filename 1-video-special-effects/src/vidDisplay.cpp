@@ -113,7 +113,7 @@ void printControls() {
     cout << "  4     : Face Highlight - color face, grey background" << endl;
     cout << "  5     : Cartoon - edge + quantization" << endl;
     cout << "  6     : Depth Focus - portrait mode blur" << endl;
-    cout << "\n--- Warp Effects (Extension) ---" << endl;
+    cout << "\n--- Extensions ---" << endl;
     cout << "  7     : Bulge - fisheye distortion" << endl;
     cout << "  8     : Wave - ripple effect" << endl;
     cout << "  9     : Swirl - twirl distortion" << endl;
@@ -196,7 +196,7 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
             break;
             
         case MODE_BLUR:
-            if (blur5x5_sep(frame, displayFrame) != 0) {
+            if (blur5x5_2(frame, displayFrame) != 0) {
                 displayFrame = frame.clone();
             }
             break;

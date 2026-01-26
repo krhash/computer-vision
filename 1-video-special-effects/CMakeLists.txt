@@ -69,6 +69,10 @@ target_link_libraries(imgDisplay ${OpenCV_LIBS})
 add_executable(vidDisplay src/vidDisplay.cpp)
 target_link_libraries(vidDisplay filters ${OpenCV_LIBS})
 
+# Task 3: Cartoon Video (Winnemöller et al. 2006 Implementation)
+add_executable(cartoonApp src/cartoonApp.cpp src/cartoonVideo.cpp)
+target_link_libraries(cartoonApp ${OpenCV_LIBS})
+
 # Copy ONNX Runtime DLLs to executable directory (Windows)
 if(WIN32 AND ONNXRuntime_FOUND)
     # Find all ONNX Runtime DLLs
@@ -155,4 +159,5 @@ message(STATUS "Executables output: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message(STATUS "ONNX Runtime: ${ONNXRuntime_FOUND}")
 message(STATUS "Image Display: imgDisplay")
 message(STATUS "Video Display: vidDisplay")
+message(STATUS "Cartoon Video: cartoonApp")
 message(STATUS "===========================")
