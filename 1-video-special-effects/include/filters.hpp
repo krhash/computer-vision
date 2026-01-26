@@ -11,6 +11,24 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 
+/**
+ * @struct Sparkle
+ * @brief Represents a single animated sparkle particle that orbits in 3D space.
+ *
+ * Each sparkle maintains its own position, appearance, and animation parameters
+ * to create varied motion around a detected face. Sparkles orbit in elliptical
+ * paths with depth (z-axis) variation to create the illusion of moving in front
+ * of and behind the face.
+ */
+struct Sparkle {
+    float angle;        ///< Current angular position in radians (0 to 2π) around orbit
+    float radius;       ///< Orbital radius distance from face center in pixels
+    float phase;        ///< Phase offset for orbit tilt angle, creates 3D depth variation
+    float size;         ///< Base size of sparkle in pixels (before depth scaling)
+    cv::Vec3b color;    ///< RGB color of the sparkle (BGR format for OpenCV)
+    float speed;        ///< Angular velocity multiplier for rotation speed
+};
+
 // Task 4: Alternative greyscale conversion
 /*
   Function: greyscale
@@ -228,6 +246,80 @@ int swirlEffect(cv::Mat &src, cv::Mat &dst, float angle = 2.0f);
   Return value: 0 on success, -1 on error
 */
 int faceBulgeEffect(cv::Mat &src, cv::Mat &dst, const std::vector<cv::Rect> &faces, float strength = 0.4f);
+
+/**
+ * @brief Creates animated sparkles that orbit around detected faces in 3D space.
+ *
+ * This function generates a magical sparkle effect where particles orbit around
+ * faces with proper depth sorting. Sparkles appear to pass in front of and behind
+ * the face, with appropriate size and brightness adjustments based on their z-depth.
+ *
+ * Algorithm:
+ * - Updates sparkle positions using time-based animation
+ * - Converts to 3D coordinates using elliptical orbit math
+ * - Separates sparkles into behind/front groups based on z-depth
+ * - Renders back sparkles first (darker, smaller), then front sparkles (brighter, larger)
+ * - Applies glow effects and pulsing animation
+ *
+ * @param src Source image (3-channel BGR color image)
+ * @param dst Destination image with sparkle effect applied
+ * @param faces Vector of face rectangles from face detection
+ * @param sparkles Persistent sparkle data for each face (maintains state across frames)
+ * @param time Current animation time in seconds (for continuous motion)
+ * @return 0 on success, -1 on error
+ *
+ * @note The sparkles parameter maintains state between frames and will be
+ *       automatically initialized if the number of faces changes.
+ *
+ * Example usage:
+ * @code
+ *   std::vector<std::vector<Sparkle>> sparkles;
+ *   float time = 0.0f;
+ *   while (capturing) {
+ *       detectFaces(grey, faces);
+ *       sparkleEffect(frame, output, faces, sparkles, time);
+ *       time += 0.033f; // ~30 FPS
+ *   }
+ * @endcode
+ */
+int sparkleEffect(cv::Mat &src, cv::Mat &dst, 
+                  const std::vector<cv::Rect> &faces,
+                  std::vector<std::vector<Sparkle>> &sparkles,
+                  float time);
+
+/**
+ * @brief Initializes sparkle particles for each detected face.
+ *
+ * Creates a set of sparkles for each face with randomized properties to ensure
+ * varied and natural-looking motion. Sparkles are distributed evenly around the
+ * orbit circle with random variations in radius, phase, size, speed, and color.
+ *
+ * Properties randomized per sparkle:
+ * - Initial angle: Evenly distributed around circle (0 to 2π)
+ * - Radius: 90-120% of base face size
+ * - Phase: Random orbit tilt (0 to 2π) for 3D depth variation
+ * - Size: 3-8 pixels
+ * - Speed: 0.8-1.2x base rotation speed
+ * - Color: Random selection from gold, white, light blue, or pink
+ *
+ * @param sparkles Output vector to store sparkle data (resized to match faces)
+ * @param faces Vector of face rectangles to create sparkles around
+ * @param numSparkles Number of sparkles to create per face (default: 12)
+ *
+ * @note This function should be called when the number of detected faces changes
+ *       or can be called explicitly to reset the sparkle animation.
+ *
+ * Example usage:
+ * @code
+ *   std::vector<cv::Rect> faces;
+ *   std::vector<std::vector<Sparkle>> sparkles;
+ *   detectFaces(grey, faces);
+ *   initializeSparkles(sparkles, faces, 15); // 15 sparkles per face
+ * @endcode
+ */
+void initializeSparkles(std::vector<std::vector<Sparkle>> &sparkles, 
+                       const std::vector<cv::Rect> &faces,
+                       int numSparkles = 12);
 
 // Utility functions
 /*

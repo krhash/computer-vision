@@ -43,13 +43,16 @@ enum DisplayMode {
     MODE_BULGE,           // Bulge warp (Extension)
     MODE_WAVE,            // Wave warp (Extension)
     MODE_SWIRL,           // Swirl warp (Extension)
-    MODE_FACE_BULGE       // Face Bulge warp (Extension)
+    MODE_FACE_BULGE,      // Face Bulge warp (Extension)
+    MODE_SPARKLES         // Sparkles around face (Extension)
 };
 
-/*
-  Function: getModeString
-  Purpose: Convert display mode enum to readable string
-*/
+/**
+ * @brief Converts display mode enum to human-readable string.
+ * 
+ * @param mode The DisplayMode enum value to convert
+ * @return String representation of the mode for display/logging
+ */
 string getModeString(DisplayMode mode) {
     switch (mode) {
         case MODE_COLOR: return "Color";
@@ -73,14 +76,18 @@ string getModeString(DisplayMode mode) {
         case MODE_WAVE: return "Wave Warp";
         case MODE_SWIRL: return "Swirl Warp";
         case MODE_FACE_BULGE: return "Face Bulge";
+        case MODE_SPARKLES: return "Sparkles";
         default: return "Unknown";
     }
 }
 
-/*
-  Function: printControls
-  Purpose: Display keyboard controls to user
-*/
+/**
+ * @brief Displays comprehensive keyboard control information to user.
+ * 
+ * Prints a formatted help menu showing all available keyboard commands
+ * for controlling the video display application, including mode switches,
+ * adjustments, and utility functions.
+ */
 void printControls() {
     cout << "\n=== Video Display Controls ===" << endl;
     cout << "  q/ESC : Quit application" << endl;
@@ -111,15 +118,21 @@ void printControls() {
     cout << "  8     : Wave - ripple effect" << endl;
     cout << "  9     : Swirl - twirl distortion" << endl;
     cout << "  0     : Face Bulge - caricature effect" << endl;
+    cout << "  [     : Sparkles - magical effect around face" << endl;
     cout << "\n--- Adjustments ---" << endl;
     cout << "  +/-   : Adjust effect strength / quantize levels" << endl;
     cout << "==============================\n" << endl;
 }
 
-/*
-  Function: displayVideoInfo
-  Purpose: Display information about the video stream and current statistics
-*/
+/**
+ * @brief Displays detailed information about the video stream and statistics.
+ * 
+ * @param frame Current video frame for size/type information
+ * @param frameCount Total number of frames captured since start
+ * @param savedCount Number of frames saved to disk
+ * @param fps Camera frames per second
+ * @param mode Current display mode
+ */
 void displayVideoInfo(const Mat& frame, int frameCount, int savedCount, 
                       double fps, DisplayMode mode) {
     cout << "\n=== Video Information ===" << endl;
@@ -134,13 +147,28 @@ void displayVideoInfo(const Mat& frame, int frameCount, int savedCount,
     cout << "========================\n" << endl;
 }
 
-/*
-  Function: processFrame
-  Purpose: Apply selected filter/effect to frame based on current mode
-*/
+/**
+ * @brief Processes a video frame by applying the selected filter/effect.
+ * 
+ * Central function that applies the appropriate image processing effect based
+ * on the current display mode. Handles all filter pipelines including basic
+ * filters, edge detection, face detection, depth effects, and warp effects.
+ * 
+ * @param frame Input video frame (3-channel BGR image)
+ * @param displayFrame Output frame with effect applied
+ * @param mode Current display mode determining which effect to apply
+ * @param sobelX Temporary storage for Sobel X gradient
+ * @param sobelY Temporary storage for Sobel Y gradient
+ * @param quantizeLevels Number of quantization levels for blur-quantize effect
+ * @param depthMap Pre-computed depth map (if available)
+ * @param warpStrength Strength parameter for warp effects [0.1-1.0]
+ * @param sparkles Persistent sparkle state data for animation
+ * @param time Current animation time in seconds for time-based effects
+ * @return 0 on success
+ */
 int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
                  Mat &sobelX, Mat &sobelY, int quantizeLevels, Mat &depthMap,
-                 float warpStrength) {
+                 float warpStrength, vector<vector<Sparkle>> &sparkles, float time) {
     
     switch (mode) {
         case MODE_COLOR:
@@ -177,7 +205,8 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
             if (sobelX3x3(frame, sobelX) != 0) {
                 displayFrame = frame.clone();
             } else {
-                convertScaleAbs(sobelX, displayFrame);
+                // Scale by 2 and add 128 offset to center around gray
+                convertScaleAbs(sobelX, displayFrame, 2.0, 128.0);
             }
             break;
             
@@ -185,7 +214,8 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
             if (sobelY3x3(frame, sobelY) != 0) {
                 displayFrame = frame.clone();
             } else {
-                convertScaleAbs(sobelY, displayFrame);
+                // Scale by 2 and add 128 offset to center around gray
+                convertScaleAbs(sobelY, displayFrame, 2.0, 128.0);
             }
             break;
             
@@ -193,8 +223,12 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
             if (sobelX3x3(frame, sobelX) != 0 || sobelY3x3(frame, sobelY) != 0) {
                 displayFrame = frame.clone();
             } else {
-                if (magnitude(sobelX, sobelY, displayFrame) != 0) {
+                Mat magTemp;
+                if (magnitude(sobelX, sobelY, magTemp) != 0) {
                     displayFrame = frame.clone();
+                } else {
+                    // Magnitude doesn't need offset, just scaling
+                    convertScaleAbs(magTemp, displayFrame, 4.0, 0);
                 }
             }
             break;
@@ -323,6 +357,19 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
             }
             break;
 
+        case MODE_SPARKLES:
+            {
+                Mat grey;
+                cvtColor(frame, grey, COLOR_BGR2GRAY);
+                vector<Rect> faces;
+                detectFaces(grey, faces);
+                
+                if (sparkleEffect(frame, displayFrame, faces, sparkles, time) != 0) {
+                    displayFrame = frame.clone();
+                }
+            }
+            break;
+
         default:
             displayFrame = frame.clone();
     }
@@ -330,10 +377,25 @@ int processFrame(Mat &frame, Mat &displayFrame, DisplayMode mode,
     return 0;
 }
 
-/*
-  Function: main
-  Purpose: Main video capture and display loop with filter controls
-*/
+/**
+ * @brief Main application entry point for video capture and display.
+ * 
+ * Initializes camera, creates display window, and runs the main processing loop.
+ * Handles user input for mode switching, parameter adjustments, and frame saving.
+ * Supports optional depth estimation via ONNX Runtime if compiled with USE_ONNXRUNTIME.
+ * 
+ * @param argc Number of command line arguments
+ * @param argv Command line arguments (argv[1] = optional camera index)
+ * @return 0 on successful execution, -1 on error
+ * 
+ * Main Loop:
+ * 1. Capture frame from camera
+ * 2. Update animation time
+ * 3. Compute depth map if needed
+ * 4. Process frame with current effect
+ * 5. Display result
+ * 6. Handle keyboard input
+ */
 int main(int argc, char* argv[]) {
     cout << "=== Video Display Application ===" << endl;
     cout << "Tasks 2-12 + Extensions: Live video with filters\n" << endl;
@@ -372,6 +434,10 @@ int main(int argc, char* argv[]) {
     int quantizeLevels = 10;
     float warpStrength = 0.5f;  // Adjustable warp strength [0.1 - 1.0]
     
+    // Sparkle animation variables
+    vector<vector<Sparkle>> sparkles;
+    auto startTime = high_resolution_clock::now();
+    
     // Depth estimation variables
     #ifdef USE_ONNXRUNTIME
     DA2Network* depthNet = nullptr;
@@ -402,6 +468,11 @@ int main(int argc, char* argv[]) {
         
         frameCount++;
         
+        // Calculate elapsed time for animations
+        auto currentTime = high_resolution_clock::now();
+        duration<float> elapsed = currentTime - startTime;
+        float time = elapsed.count();
+        
         // Compute depth when needed
         #ifdef USE_ONNXRUNTIME
         bool needsDepth = (currentMode == MODE_DEPTH || currentMode == MODE_DEPTH_FOG ||
@@ -415,7 +486,7 @@ int main(int argc, char* argv[]) {
         
         // Process frame based on current mode
         processFrame(frame, displayFrame, currentMode, sobelX, sobelY, 
-                    quantizeLevels, depthMap, warpStrength);
+                    quantizeLevels, depthMap, warpStrength, sparkles, time);
         
         imshow("Video Display", displayFrame);
         
@@ -470,6 +541,7 @@ int main(int argc, char* argv[]) {
         else if (key == '8') { currentMode = MODE_WAVE; cout << "Mode: Wave Warp (strength: " << warpStrength << ")" << endl; }
         else if (key == '9') { currentMode = MODE_SWIRL; cout << "Mode: Swirl Warp (strength: " << warpStrength << ")" << endl; }
         else if (key == '0') { currentMode = MODE_FACE_BULGE; cout << "Mode: Face Bulge (strength: " << warpStrength << ")" << endl; }
+        else if (key == '[' || key == '{') { currentMode = MODE_SPARKLES; cout << "Mode: Sparkles" << endl; }
         // Adjustments
         else if (key == '+' || key == '=') {
             if (currentMode == MODE_QUANTIZE) {

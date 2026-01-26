@@ -4,6 +4,7 @@
   Purpose: Implementation of image filtering and manipulation functions.
 */
 
+#define _USE_MATH_DEFINES
 #include "filters.hpp"
 #include <iostream>
 #include <cmath>
@@ -1086,6 +1087,305 @@ int faceBulgeEffect(cv::Mat &src, cv::Mat &dst, const std::vector<cv::Rect> &fac
                     }
                 }
             }
+        }
+    }
+    
+    return 0;
+}
+
+// Add this to filters.cpp
+
+/*
+  Sparkle Effect Implementation
+  
+  Creates animated sparkles that orbit around detected faces in 3D space.
+  Uses depth sorting to draw sparkles in front of or behind the face.
+  
+  Mathematical basis:
+  - Sparkles orbit in 3D: x = r*cos(θ), y = r*sin(θ)*cos(φ), z = r*sin(θ)*sin(φ)
+  - z-depth determines drawing order (behind face vs in front)
+  - Time-based animation updates angle θ
+*/
+
+/**
+ * @brief Initializes sparkle particles with randomized properties for each face.
+ *
+ * This function creates a new set of sparkles for each detected face. Each sparkle
+ * is given random properties to ensure varied motion and appearance. The sparkles
+ * are initially positioned evenly around a circle, with randomization applied to
+ * radius, phase (orbit tilt), size, speed, and color.
+ *
+ * The base radius is calculated from the face dimensions to ensure sparkles orbit
+ * at an appropriate distance. Additional random variation (±30%) prevents sparkles
+ * from appearing too uniform.
+ *
+ * @param sparkles Output vector, resized to match number of faces and filled with initialized sparkles
+ * @param faces Input vector of face rectangles to create sparkles around
+ * @param numSparkles Number of sparkles to create per face (default: 12)
+ *
+ * @implementation
+ * - Resizes output vector to match number of faces
+ * - For each face:
+ *   - Calculates base orbital radius (60% of max face dimension)
+ *   - Creates numSparkles evenly distributed around circle
+ *   - Randomizes: radius (±30%), phase (0-2π), size (3-8px), speed (0.8-1.2x), color
+ * - Color palette: Gold, White, Light Blue, Pink
+ */
+void initializeSparkles(std::vector<std::vector<Sparkle>> &sparkles, 
+                       const std::vector<cv::Rect> &faces,
+                       int numSparkles) {
+    sparkles.resize(faces.size());
+    
+    for (size_t faceIdx = 0; faceIdx < faces.size(); faceIdx++) {
+        sparkles[faceIdx].clear();
+        
+        float faceRadius = std::max(faces[faceIdx].width, faces[faceIdx].height) * 0.6f;
+        
+        // Create sparkles evenly distributed around circle
+        for (int i = 0; i < numSparkles; i++) {
+            Sparkle s;
+            s.angle = (2.0f * M_PI * i) / numSparkles;
+            s.radius = faceRadius * (0.9f + 0.3f * (rand() % 100) / 100.0f);
+            s.phase = (rand() % 100) / 100.0f * 2.0f * M_PI;
+            s.size = 3.0f + (rand() % 5);
+            s.speed = 0.8f + 0.4f * (rand() % 100) / 100.0f;
+            
+            // Random sparkle colors (gold, white, light blue, pink)
+            int colorChoice = rand() % 4;
+            switch (colorChoice) {
+                case 0: s.color = cv::Vec3b(102, 204, 255); break; // Gold
+                case 1: s.color = cv::Vec3b(255, 255, 255); break; // White
+                case 2: s.color = cv::Vec3b(255, 200, 150); break; // Light blue
+                case 3: s.color = cv::Vec3b(203, 192, 255); break; // Pink
+            }
+            
+            sparkles[faceIdx].push_back(s);
+        }
+    }
+}
+
+/**
+ * @brief Draws a single sparkle with glow effect at specified location.
+ *
+ * Creates a multi-layered glowing sparkle by drawing concentric circles with
+ * decreasing alpha (transparency). The innermost layers are brightest, creating
+ * a soft glow effect. Additionally draws a cross pattern at the center for
+ * bright sparkles to enhance the "twinkling" appearance.
+ *
+ * The glow is achieved through alpha blending with the existing image pixels:
+ * result = background * (1 - alpha) + sparkleColor * alpha
+ *
+ * @param img Image to draw sparkle on (modified in-place)
+ * @param center Center position of sparkle in pixel coordinates
+ * @param size Base radius of sparkle in pixels
+ * @param color RGB color of sparkle (BGR format)
+ * @param brightness Overall brightness multiplier [0.0-1.0]
+ *
+ * @implementation
+ * - Draws 4 concentric layers with increasing radius and decreasing alpha
+ * - Each layer uses distance-based falloff for smooth gradient
+ * - For bright sparkles (brightness > 0.5), adds cross pattern at center
+ * - All drawing operations include bounds checking
+ */
+// Helper function to draw a sparkle with glow effect
+void drawSparkle(cv::Mat &img, cv::Point center, float size, cv::Vec3b color, float brightness) {
+    if (center.x < 0 || center.x >= img.cols || center.y < 0 || center.y >= img.rows) {
+        return;
+    }
+    
+    // Draw glow layers
+    for (int layer = 3; layer >= 0; layer--) {
+        float layerSize = size + layer * 1.5f;
+        float layerAlpha = brightness * (1.0f - layer * 0.25f);
+        
+        for (int dy = -layerSize; dy <= layerSize; dy++) {
+            for (int dx = -layerSize; dx <= layerSize; dx++) {
+                int px = center.x + dx;
+                int py = center.y + dy;
+                
+                if (px >= 0 && px < img.cols && py >= 0 && py < img.rows) {
+                    float dist = std::sqrt(dx*dx + dy*dy);
+                    if (dist <= layerSize) {
+                        float alpha = layerAlpha * (1.0f - dist / layerSize);
+                        cv::Vec3b &pixel = img.at<cv::Vec3b>(py, px);
+                        
+                        for (int c = 0; c < 3; c++) {
+                            float blended = pixel[c] * (1.0f - alpha) + color[c] * alpha;
+                            pixel[c] = static_cast<uchar>(std::min(255.0f, blended));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Draw bright center cross pattern
+    if (brightness > 0.5f) {
+        int crossLen = static_cast<int>(size * 1.5f);
+        cv::line(img, 
+                cv::Point(center.x - crossLen, center.y),
+                cv::Point(center.x + crossLen, center.y),
+                cv::Scalar(color[0], color[1], color[2]), 1, cv::LINE_AA);
+        cv::line(img, 
+                cv::Point(center.x, center.y - crossLen),
+                cv::Point(center.x, center.y + crossLen),
+                cv::Scalar(color[0], color[1], color[2]), 1, cv::LINE_AA);
+    }
+}
+
+/**
+ * @brief Applies animated sparkle effect around detected faces with 3D depth sorting.
+ *
+ * This is the main sparkle effect function that creates magical animated particles
+ * orbiting around faces. The effect achieves realistic 3D appearance by:
+ * 1. Computing 3D positions using elliptical orbit mathematics
+ * 2. Sorting sparkles by z-depth into behind/front groups
+ * 3. Drawing back sparkles first (smaller, darker) then front sparkles (larger, brighter)
+ * 4. Applying time-based animation and pulsing effects
+ *
+ * The 3D illusion is created using parallax and depth cues - sparkles further from
+ * the viewer (negative z) appear smaller and dimmer, while closer sparkles (positive z)
+ * appear larger and brighter.
+ *
+ * @param src Source image (must be 3-channel BGR color image)
+ * @param dst Destination image with sparkle effect (cloned from source then modified)
+ * @param faces Vector of detected face rectangles (from face detection)
+ * @param sparkles Persistent sparkle state data (auto-initialized if size mismatches faces)
+ * @param time Current animation time in seconds (continuously increasing for smooth animation)
+ * @return 0 on success, -1 on error (invalid image format)
+ *
+ * @implementation
+ * Algorithm steps:
+ * 1. Validate input and clone source to destination
+ * 2. Initialize sparkles if needed (faces count changed)
+ * 3. For each face:
+ *    a. Calculate face center point
+ *    b. Update sparkle angles based on time and individual speeds
+ *    c. Compute 3D positions: x = r*cos(θ), y = r*sin(θ)*cos(φ), z = r*sin(θ)*sin(φ)*0.7
+ *    d. Separate sparkles into behind (z < 0) and front (z ≥ 0) groups
+ *    e. Sort each group by z-depth
+ *    f. Draw behind sparkles with reduced size/brightness (depth factor 0.3-0.7)
+ *    g. Draw front sparkles with enhanced size/brightness (depth factor 0.7-1.0)
+ * 4. Apply pulsing effect: brightness *= 0.8 + 0.2*sin(time*3 + phase)
+ *
+ * @note Ellipse ratio of 0.7 creates the illusion of tilted circular orbits in 3D space
+ * @note Each sparkle maintains its own phase offset for orbit tilt variation
+ */
+int sparkleEffect(cv::Mat &src, cv::Mat &dst, 
+                  const std::vector<cv::Rect> &faces,
+                  std::vector<std::vector<Sparkle>> &sparkles,
+                  float time) {
+    if (src.empty() || src.channels() != 3) {
+        std::cerr << "Error: sparkleEffect requires 3-channel image" << std::endl;
+        return -1;
+    }
+    
+    // Start with original image
+    dst = src.clone();
+    
+    if (faces.empty()) {
+        return 0;
+    }
+    
+    // Initialize sparkles if needed
+    if (sparkles.size() != faces.size()) {
+        initializeSparkles(sparkles, faces);
+    }
+    
+    // Process each face
+    for (size_t faceIdx = 0; faceIdx < faces.size(); faceIdx++) {
+        const cv::Rect &face = faces[faceIdx];
+        std::vector<Sparkle> &faceSparkles = sparkles[faceIdx];
+        
+        cv::Point faceCenter(face.x + face.width / 2, face.y + face.height / 2);
+        
+        // Separate sparkles into behind and in-front groups
+        std::vector<std::pair<float, int>> behindSparkles;  // (z-depth, index)
+        std::vector<std::pair<float, int>> frontSparkles;
+        
+        for (size_t i = 0; i < faceSparkles.size(); i++) {
+            Sparkle &s = faceSparkles[i];
+            
+            // Update angle based on time
+            s.angle += s.speed * 0.02f;
+            if (s.angle > 2.0f * M_PI) {
+                s.angle -= 2.0f * M_PI;
+            }
+            
+            // Calculate 3D position
+            // Use elliptical orbit with depth component
+            float ellipseRatio = 0.7f;  // Makes orbit appear elliptical (3D effect)
+            float tiltAngle = s.phase;  // Each sparkle has different orbit tilt
+            
+            // Position in 3D space
+            float x = s.radius * std::cos(s.angle);
+            float y = s.radius * std::sin(s.angle) * std::cos(tiltAngle);
+            float z = s.radius * std::sin(s.angle) * std::sin(tiltAngle) * ellipseRatio;
+            
+            // Sort by z-depth
+            if (z < 0) {
+                behindSparkles.push_back(std::make_pair(z, i));
+            } else {
+                frontSparkles.push_back(std::make_pair(z, i));
+            }
+        }
+        
+        // Sort by z-depth (furthest first)
+        std::sort(behindSparkles.begin(), behindSparkles.end());
+        std::sort(frontSparkles.begin(), frontSparkles.end());
+        
+        // Draw sparkles behind face first (darker/smaller)
+        for (const auto &pair : behindSparkles) {
+            Sparkle &s = faceSparkles[pair.second];
+            
+            float x = s.radius * std::cos(s.angle);
+            float y = s.radius * std::sin(s.angle) * std::cos(s.phase);
+            float z = s.radius * std::sin(s.angle) * std::sin(s.phase) * 0.7f;
+            
+            cv::Point sparklePos(
+                faceCenter.x + static_cast<int>(x),
+                faceCenter.y + static_cast<int>(y)
+            );
+            
+            // Scale and fade based on depth
+            float depthFactor = 0.3f + 0.4f * (z + s.radius) / (2.0f * s.radius);
+            float adjustedSize = s.size * depthFactor;
+            float brightness = 0.4f + 0.3f * depthFactor;
+            
+            // Pulsing effect
+            brightness *= 0.8f + 0.2f * std::sin(time * 3.0f + s.phase);
+            
+            drawSparkle(dst, sparklePos, adjustedSize, s.color, brightness);
+        }
+        
+        // Draw face region outline (optional - helps visualize depth)
+        // You can comment this out if not needed
+        // cv::ellipse(dst, faceCenter, 
+        //            cv::Size(face.width/2, face.height/2),
+        //            0, 0, 360, cv::Scalar(100, 100, 100), 1);
+        
+        // Draw sparkles in front of face (brighter/larger)
+        for (const auto &pair : frontSparkles) {
+            Sparkle &s = faceSparkles[pair.second];
+            
+            float x = s.radius * std::cos(s.angle);
+            float y = s.radius * std::sin(s.angle) * std::cos(s.phase);
+            float z = s.radius * std::sin(s.angle) * std::sin(s.phase) * 0.7f;
+            
+            cv::Point sparklePos(
+                faceCenter.x + static_cast<int>(x),
+                faceCenter.y + static_cast<int>(y)
+            );
+            
+            // Scale and brighten based on depth
+            float depthFactor = 0.7f + 0.3f * (z + s.radius) / (2.0f * s.radius);
+            float adjustedSize = s.size * depthFactor;
+            float brightness = 0.7f + 0.3f * depthFactor;
+            
+            // Pulsing effect
+            brightness *= 0.8f + 0.2f * std::sin(time * 3.0f + s.phase);
+            
+            drawSparkle(dst, sparklePos, adjustedSize, s.color, brightness);
         }
     }
     
