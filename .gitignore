@@ -1,41 +1,60 @@
-# Prerequisites
-*.d
+# Build directories
+build/
+bin/
+lib/
 
-# Compiled Object files
-*.slo
-*.lo
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled files
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
 *.exe
 *.out
 *.app
 
-# debug information files
-*.dwo
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+!cmake/FindONNXRuntime.cmake
+
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+
+# Saved images/videos (except samples)
+*.jpg
+*.png
+*.avi
+*.mp4
+!data/images/sample.jpg
+!report/images/*.jpg
+!report/images/*.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation builds
+*.aux
+*.log
+*.pdf
+!report/report.pdf
+
+# ONNX models (large files)
+*.onnx
+
+# Temporary files
+*.tmp
+*.bak
