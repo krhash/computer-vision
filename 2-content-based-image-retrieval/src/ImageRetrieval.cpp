@@ -3,6 +3,17 @@
 // Author: Krushna Sanjay Sharma
 // Description: Implementation of the main CBIR engine that performs image
 //              queries by comparing features and ranking results by similarity.
+//
+// This class orchestrates the query process:
+//   1. Extracts features from query image
+//   2. Compares query features to all database features
+//   3. Computes distances using specified metric
+//   4. Sorts results by distance (ascending)
+//   5. Returns top N most similar images
+//
+// The class uses polymorphism to support different feature extractors
+// and distance metrics without code changes.
+//
 // Date: February 2026
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -13,28 +24,38 @@
 namespace cbir {
 
 /**
- * @brief Constructor
- * 
- * @author Krushna Sanjay Sharma
+ * Constructor - Initialize with null pointers
+ * Components must be set using setter methods before querying
  */
 ImageRetrieval::ImageRetrieval() 
     : database_(nullptr), featureExtractor_(nullptr), distanceMetric_(nullptr) {
-    // Initialize with null pointers
+    // Initialize all components to null
+    // User must call setters before performing queries
 }
 
 /**
- * @brief Query database with an image
+ * Query database with an image
  * 
- * @author Krushna Sanjay Sharma
+ * Main query interface - extracts features from query image and finds
+ * top N most similar images from database.
+ * 
+ * Process:
+ *   1. Validate system is ready (all components set)
+ *   2. Extract features from query image
+ *   3. Delegate to queryWithFeatures() for comparison
+ * 
+ * @param queryImage Input image to search for
+ * @param topN Number of top matches to return
+ * @return Vector of top N matches sorted by distance (ascending)
  */
 std::vector<ImageMatch> ImageRetrieval::query(const cv::Mat& queryImage, int topN) {
-    // Check if system is ready
+    // Validate system is properly configured
     if (!isReady()) {
         std::cerr << "Error: ImageRetrieval system not properly configured" << std::endl;
         return std::vector<ImageMatch>();
     }
     
-    // Extract features from query image
+    // Extract features from query image using configured extractor
     std::cout << "Extracting features from query image..." << std::endl;
     cv::Mat queryFeatures = featureExtractor_->extractFeatures(queryImage);
     
@@ -43,18 +64,29 @@ std::vector<ImageMatch> ImageRetrieval::query(const cv::Mat& queryImage, int top
         return std::vector<ImageMatch>();
     }
     
-    // Query with extracted features
+    // Delegate to feature-based query method
     return queryWithFeatures(queryFeatures, topN);
 }
 
 /**
- * @brief Query database with pre-computed features
+ * Query database with pre-computed features
  * 
- * @author Krushna Sanjay Sharma
+ * Useful when features are already extracted or loaded from file.
+ * Performs the actual comparison against database.
+ * 
+ * Process:
+ *   1. Validate system is ready
+ *   2. Compute distance from query to all database images
+ *   3. Sort by distance (ascending - lower is more similar)
+ *   4. Return top N matches
+ * 
+ * @param queryFeatures Pre-computed feature vector
+ * @param topN Number of top matches to return
+ * @return Vector of top N matches sorted by distance (ascending)
  */
 std::vector<ImageMatch> ImageRetrieval::queryWithFeatures(const cv::Mat& queryFeatures, 
                                                           int topN) {
-    // Check if system is ready
+    // Validate system is properly configured
     if (!isReady()) {
         std::cerr << "Error: ImageRetrieval system not properly configured" << std::endl;
         return std::vector<ImageMatch>();
@@ -62,7 +94,7 @@ std::vector<ImageMatch> ImageRetrieval::queryWithFeatures(const cv::Mat& queryFe
     
     std::cout << "Computing distances to all database images..." << std::endl;
     
-    // Compute distances to all images
+    // Compute distance to every image in database
     std::vector<ImageMatch> allMatches = computeAllDistances(queryFeatures);
     
     if (allMatches.empty()) {
@@ -70,10 +102,10 @@ std::vector<ImageMatch> ImageRetrieval::queryWithFeatures(const cv::Mat& queryFe
         return std::vector<ImageMatch>();
     }
     
-    // Sort by distance (ascending - lower distance = more similar)
+    // Sort matches by distance (ascending: 0.0 = identical, higher = less similar)
     std::sort(allMatches.begin(), allMatches.end());
     
-    // Return top N matches
+    // Extract top N matches
     int numToReturn = std::min(topN, static_cast<int>(allMatches.size()));
     std::vector<ImageMatch> topMatches(allMatches.begin(), 
                                        allMatches.begin() + numToReturn);
@@ -84,36 +116,40 @@ std::vector<ImageMatch> ImageRetrieval::queryWithFeatures(const cv::Mat& queryFe
 }
 
 /**
- * @brief Set feature database
+ * Set the feature database to query against
  * 
- * @author Krushna Sanjay Sharma
+ * @param database Pointer to loaded feature database
  */
 void ImageRetrieval::setFeatureDatabase(FeatureDatabase* database) {
     database_ = database;
 }
 
 /**
- * @brief Set feature extractor
+ * Set the feature extractor to use for query images
  * 
- * @author Krushna Sanjay Sharma
+ * Takes ownership via smart pointer to manage lifetime.
+ * 
+ * @param extractor Pointer to feature extractor
  */
 void ImageRetrieval::setFeatureExtractor(FeatureExtractor* extractor) {
     featureExtractor_ = FeatureExtractorPtr(extractor);
 }
 
 /**
- * @brief Set distance metric
+ * Set the distance metric to use for comparisons
  * 
- * @author Krushna Sanjay Sharma
+ * Takes ownership via smart pointer to manage lifetime.
+ * 
+ * @param metric Pointer to distance metric
  */
 void ImageRetrieval::setDistanceMetric(DistanceMetric* metric) {
     distanceMetric_ = DistanceMetricPtr(metric);
 }
 
 /**
- * @brief Get feature extractor name
+ * Get name of currently configured feature extractor
  * 
- * @author Krushna Sanjay Sharma
+ * @return Feature extractor name or "None" if not set
  */
 std::string ImageRetrieval::getFeatureExtractorName() const {
     if (featureExtractor_) {
@@ -123,9 +159,9 @@ std::string ImageRetrieval::getFeatureExtractorName() const {
 }
 
 /**
- * @brief Get distance metric name
+ * Get name of currently configured distance metric
  * 
- * @author Krushna Sanjay Sharma
+ * @return Distance metric name or "None" if not set
  */
 std::string ImageRetrieval::getDistanceMetricName() const {
     if (distanceMetric_) {
@@ -135,9 +171,14 @@ std::string ImageRetrieval::getDistanceMetricName() const {
 }
 
 /**
- * @brief Check if system is ready for queries
+ * Check if system is ready to perform queries
  * 
- * @author Krushna Sanjay Sharma
+ * Validates that all required components are set:
+ *   - Feature database is set and not empty
+ *   - Feature extractor is set
+ *   - Distance metric is set
+ * 
+ * @return True if ready, false otherwise
  */
 bool ImageRetrieval::isReady() const {
     if (database_ == nullptr) {
@@ -164,9 +205,21 @@ bool ImageRetrieval::isReady() const {
 }
 
 /**
- * @brief Compute distances from query to all database images
+ * Compute distances from query features to all database images
  * 
- * @author Krushna Sanjay Sharma
+ * Iterates through entire database, computing distance between
+ * query features and each database image's features.
+ * 
+ * Process:
+ *   1. Get list of all image names in database
+ *   2. For each image:
+ *      - Retrieve its pre-computed features
+ *      - Compute distance to query features
+ *      - Store in results vector
+ *   3. Return unsorted results
+ * 
+ * @param queryFeatures Query feature vector
+ * @return Vector of all matches with computed distances (unsorted)
  */
 std::vector<ImageMatch> ImageRetrieval::computeAllDistances(const cv::Mat& queryFeatures) {
     std::vector<ImageMatch> matches;
@@ -179,7 +232,7 @@ std::vector<ImageMatch> ImageRetrieval::computeAllDistances(const cv::Mat& query
     
     // Compute distance to each database image
     for (const auto& imageName : imageNames) {
-        // Get features for this database image
+        // Retrieve pre-computed features for this database image
         cv::Mat dbFeatures = database_->getFeatures(imageName);
         
         if (dbFeatures.empty()) {
@@ -187,15 +240,17 @@ std::vector<ImageMatch> ImageRetrieval::computeAllDistances(const cv::Mat& query
             continue;
         }
         
-        // Compute distance
+        // Compute distance using configured metric
+        // Lower distance = more similar
         double distance = distanceMetric_->compute(queryFeatures, dbFeatures);
         
         if (distance < 0) {
+            // Negative distance indicates error in metric computation
             std::cerr << "Warning: Invalid distance for " << imageName << std::endl;
             continue;
         }
         
-        // Create match and add to results
+        // Create match record and add to results
         ImageMatch match(imageName, distance);
         matches.push_back(match);
     }
