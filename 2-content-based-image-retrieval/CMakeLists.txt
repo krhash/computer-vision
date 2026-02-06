@@ -71,9 +71,11 @@ set(CBIR_CORE_SOURCES
     
     # Feature extractors
     src/BaselineFeature.cpp
+    src/HistogramFeature.cpp
     
     # Distance metrics
     src/SSDMetric.cpp
+    src/HistogramIntersection.cpp
     
     # Database and retrieval
     src/FeatureDatabase.cpp
@@ -86,8 +88,10 @@ set(CBIR_CORE_SOURCES
 set(CBIR_CORE_HEADERS
     include/FeatureExtractor.h
     include/DistanceMetric.h
-    include/BaselineFeature.h
+    include/BaselineFeature.h.
+    include/HistogramFeature.h
     include/SSDMetric.h
+    include/HistogramIntersection.h
     include/FeatureDatabase.h
     include/ImageRetrieval.h
     include/Utils.h
