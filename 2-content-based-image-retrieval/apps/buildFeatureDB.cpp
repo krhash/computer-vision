@@ -21,6 +21,7 @@
 #include "BaselineFeature.h"
 #include "HistogramFeature.h"
 #include "MultiHistogramFeature.h"
+#include "TextureColorFeature.h"
 #include <iostream>
 #include <string>
 
@@ -91,6 +92,16 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             cbir::HistogramFeature::HistogramType::RGB,          // RGB histogram
             8,                                                    // 8 bins per channel
             true                                                  // normalize
+        );
+    } else if (type == "texturecolor" || type == "texture") {
+        // Texture + Color: Sobel gradient histogram + RGB histogram
+        // Texture: 16 bins (gradient magnitudes 0-255)
+        // Color: 8 bins per channel (8×8×8 = 512 bins)
+        // Total: 16 + 512 = 528 values
+        return new cbir::TextureColorFeature(
+            16,   // texture bins
+            8,    // color bins per channel
+            true  // normalize
         );
     }
     

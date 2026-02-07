@@ -23,6 +23,8 @@
 #include "HistogramFeature.h"
 #include "HistogramIntersection.h"
 #include "MultiHistogramFeature.h"
+#include "TextureColorFeature.h"
+#include "WeightedHistogramIntersection.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -92,6 +94,16 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             8,
             true
         );
+    } else if (type == "texturecolor" || type == "texture") {
+        // Texture + Color: Sobel gradient histogram + RGB histogram
+        // Texture: 16 bins (gradient magnitudes 0-255)
+        // Color: 8 bins per channel (8×8×8 = 512 bins)
+        // Total: 16 + 512 = 528 values
+        return new cbir::TextureColorFeature(
+            16,   // texture bins
+            8,    // color bins per channel
+            true  // normalize
+        );
     }
     
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
@@ -109,21 +121,24 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
  * @return Pointer to created distance metric, nullptr if type unknown
  */
 cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
-    // Convert to lowercase for case-insensitive comparison
     string type = cbir::Utils::toLower(metricType);
     
     if (type == "ssd") {
-        // Sum of Squared Differences
-        // Best for: baseline features, exact pixel matching
         return new cbir::SSDMetric();
     } else if (type == "histogram" || type == "intersection") {
-        // Histogram Intersection
-        // Best for: histogram features, color distribution matching
         return new cbir::HistogramIntersection();
+    } else if (type == "weighted" || type == "texturecolor") {
+        // Weighted intersection: 50% texture, 50% color
+        return new cbir::WeightedHistogramIntersection(
+            16,   // texture dimension
+            512,  // color dimension
+            0.5,  // 50% weight for texture
+            0.5   // 50% weight for color
+        );
     }
     
-    // Unknown metric type
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;
+    cerr << "Available: ssd, histogram, weighted" << endl;
     return nullptr;
 }
 

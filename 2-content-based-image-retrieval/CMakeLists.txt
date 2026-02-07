@@ -73,10 +73,12 @@ set(CBIR_CORE_SOURCES
     src/BaselineFeature.cpp
     src/HistogramFeature.cpp
     src/MultiHistogramFeature.cpp
+    src/TextureColorFeature.cpp
     
     # Distance metrics
     src/SSDMetric.cpp
     src/HistogramIntersection.cpp
+    src/WeightedHistogramIntersection.cpp
     
     # Database and retrieval
     src/FeatureDatabase.cpp
@@ -92,8 +94,10 @@ set(CBIR_CORE_HEADERS
     include/BaselineFeature.h.
     include/HistogramFeature.h
     include/MultiHistogramFeature.h
+    include/TextureColorFeature.h
     include/SSDMetric.h
     include/HistogramIntersection.h
+    include/WeightedHistogramIntersection.h
     include/FeatureDatabase.h
     include/ImageRetrieval.h
     include/Utils.h
