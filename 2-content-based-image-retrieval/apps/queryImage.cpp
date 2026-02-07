@@ -22,6 +22,7 @@
 #include "SSDMetric.h"
 #include "HistogramFeature.h"
 #include "HistogramIntersection.h"
+#include "MultiHistogramFeature.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -68,31 +69,31 @@ void printUsage(const char* programName) {
  * @return Pointer to created feature extractor, nullptr if type unknown
  */
 cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
-    // Convert to lowercase for case-insensitive comparison
     string type = cbir::Utils::toLower(featureType);
     
     if (type == "baseline") {
-        // Baseline: Extract 7x7 pixel square from center
         return new cbir::BaselineFeature();
     } else if (type == "histogram" || type == "rgb") {
-        // RGB Histogram: 8 bins per channel, normalized
-        // MUST match parameters used in buildFeatureDB!
         return new cbir::HistogramFeature(
             cbir::HistogramFeature::HistogramType::RGB, 
-            8,      // bins per channel (must match database)
-            true    // normalize (must match database)
+            8, true
         );
     } else if (type == "chromaticity" || type == "rg") {
-        // RG Chromaticity: 16 bins per channel, normalized
-        // MUST match parameters used in buildFeatureDB!
         return new cbir::HistogramFeature(
             cbir::HistogramFeature::HistogramType::RG_CHROMATICITY, 
-            16,     // bins per channel (must match database)
-            true    // normalize (must match database)
+            16, true
+        );
+    } else if (type == "multihistogram" || type == "multi") {
+        // MUST match parameters used in buildFeatureDB!
+        return new cbir::MultiHistogramFeature(
+            cbir::MultiHistogramFeature::SplitType::GRID,
+            4,
+            cbir::HistogramFeature::HistogramType::RGB,
+            8,
+            true
         );
     }
     
-    // Unknown feature type
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
     return nullptr;
 }

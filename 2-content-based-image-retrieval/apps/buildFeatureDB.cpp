@@ -20,6 +20,7 @@
 #include "FeatureDatabase.h"
 #include "BaselineFeature.h"
 #include "HistogramFeature.h"
+#include "MultiHistogramFeature.h"
 #include <iostream>
 #include <string>
 
@@ -39,12 +40,13 @@ void printUsage(const char* programName) {
     cout << "Arguments:" << endl;
     cout << "  image_dir    : Directory containing images" << endl;
     cout << "  feature_type : Type of features to extract" << endl;
-    cout << "                 Options: baseline, histogram, chromaticity" << endl;
+    cout << "                 Options: baseline, histogram, chromaticity, multihistogram" << endl;
     cout << "  output_csv   : Output CSV file for features" << endl;
     cout << endl;
     cout << "Example:" << endl;
     cout << "  " << programName << " data/images baseline baseline_features.csv" << endl;
     cout << "  " << programName << " data/images histogram histogram_features.csv" << endl;
+    cout << "  " << programName << " data/images multihistogram multi_features.csv" << endl;
     cout << endl;
 }
 
@@ -60,7 +62,6 @@ void printUsage(const char* programName) {
  * @return Pointer to created feature extractor, nullptr if type unknown
  */
 cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
-    // Convert to lowercase for case-insensitive comparison
     string type = cbir::Utils::toLower(featureType);
     
     if (type == "baseline") {
@@ -75,19 +76,30 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
         );
     } else if (type == "chromaticity" || type == "rg") {
         // RG Chromaticity: 16 bins per channel (16x16 = 256 bins), normalized
-        // More robust to lighting changes
         return new cbir::HistogramFeature(
             cbir::HistogramFeature::HistogramType::RG_CHROMATICITY, 
             16,     // bins per channel
             true    // normalize to sum=1.0
         );
+    } else if (type == "multihistogram" || type == "multi") {
+        // Multi-region RGB Histogram: 2 horizontal regions (top/bottom)
+        // Each region: 8x8x8 = 512 bins
+        // Total: 2 × 512 = 1024 values
+        return new cbir::MultiHistogramFeature(
+            cbir::MultiHistogramFeature::SplitType::GRID,  // Split top/bottom
+            4,                                                    // 2 regions
+            cbir::HistogramFeature::HistogramType::RGB,          // RGB histogram
+            8,                                                    // 8 bins per channel
+            true                                                  // normalize
+        );
     }
     
     // Unknown feature type
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
-    cerr << "Available types: baseline, histogram, chromaticity" << endl;
+    cerr << "Available types: baseline, histogram, chromaticity, multihistogram" << endl;
     return nullptr;
 }
+
 
 /**
  * Main function - Build feature database from image directory
