@@ -25,6 +25,7 @@
 #include "MultiHistogramFeature.h"
 #include "TextureColorFeature.h"
 #include "WeightedHistogramIntersection.h"
+#include "GaborTextureColorFeature.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -104,9 +105,22 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             8,    // color bins per channel
             true  // normalize
         );
+    } else if (type == "gabor" || type == "gaborcolor") {
+        // Task 4 Extension: Gabor texture + Color
+        // 4 orientations × 2 scales × 8 bins = 64 texture bins
+        // 8×8×8 = 512 color bins
+        // Total: 576 values
+        return new cbir::GaborTextureColorFeature(
+            4,    // orientations
+            2,    // scales
+            8,    // bins per Gabor histogram
+            8,    // color bins per channel
+            true  // normalize
+        );
     }
     
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
+    cerr << "Available: baseline, histogram, chromaticity, multihorizontal, texturecolor, gabor" << endl;
     return nullptr;
 }
 
@@ -135,6 +149,9 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
             0.5,  // 50% weight for texture
             0.5   // 50% weight for color
         );
+    } else if (type == "gabor" || type == "gaborweighted") {
+        // Gabor texture + color: 64 + 512
+        return new cbir::WeightedHistogramIntersection(64, 512, 0.5, 0.5);
     }
     
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;

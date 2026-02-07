@@ -22,6 +22,7 @@
 #include "HistogramFeature.h"
 #include "MultiHistogramFeature.h"
 #include "TextureColorFeature.h"
+#include "GaborTextureColorFeature.h"
 #include <iostream>
 #include <string>
 
@@ -100,6 +101,18 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
         // Total: 16 + 512 = 528 values
         return new cbir::TextureColorFeature(
             16,   // texture bins
+            8,    // color bins per channel
+            true  // normalize
+        );
+    } else if (type == "gabor" || type == "gaborcolor") {
+        // Task 4 Extension: Gabor texture + Color
+        // 4 orientations × 2 scales × 8 bins = 64 texture bins
+        // 8×8×8 = 512 color bins
+        // Total: 576 values
+        return new cbir::GaborTextureColorFeature(
+            4,    // orientations
+            2,    // scales
+            8,    // bins per Gabor histogram
             8,    // color bins per channel
             true  // normalize
         );

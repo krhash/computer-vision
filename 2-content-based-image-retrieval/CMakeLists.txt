@@ -74,6 +74,7 @@ set(CBIR_CORE_SOURCES
     src/HistogramFeature.cpp
     src/MultiHistogramFeature.cpp
     src/TextureColorFeature.cpp
+    src/GaborTextureColorFeature.cpp
     
     # Distance metrics
     src/SSDMetric.cpp
@@ -95,6 +96,7 @@ set(CBIR_CORE_HEADERS
     include/HistogramFeature.h
     include/MultiHistogramFeature.h
     include/TextureColorFeature.h
+    include/GaborTextureColorFeature.h
     include/SSDMetric.h
     include/HistogramIntersection.h
     include/WeightedHistogramIntersection.h
