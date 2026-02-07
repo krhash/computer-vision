@@ -1,0 +1,6 @@
+# CBIR GUI Requirements
+# Author: Krushna Sanjay Sharma
+# Install with: pip install -r requirements.txt
+
+Pillow>=10.0.0     # Image loading and display
+# tkinter is built-in with Python, no need to install
