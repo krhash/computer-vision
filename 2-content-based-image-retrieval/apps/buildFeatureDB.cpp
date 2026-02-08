@@ -23,6 +23,7 @@
 #include "MultiHistogramFeature.h"
 #include "TextureColorFeature.h"
 #include "GaborTextureColorFeature.h"
+#include "DNNFeature.h"
 #include <iostream>
 #include <string>
 
@@ -119,11 +120,16 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             8,    // color bins per channel
             true  // normalize
         );
+    } else if (type == "dnn" || type == "resnet") {
+        // Task 5: DNN features (pre-computed, loaded from CSV)
+        // NOTE: For DNN, buildFeatureDB just copies the existing CSV
+        // No feature extraction is performed
+        return new cbir::DNNFeature();
     }
     
     // Unknown feature type
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
-    cerr << "Available types: baseline, histogram, chromaticity, multihistogram" << endl;
+    cerr << "Available: baseline, histogram, chromaticity, multihistogram, texturecolor, gabor, dnn" << endl;
     return nullptr;
 }
 
@@ -153,6 +159,20 @@ int main(int argc, char* argv[]) {
     string imageDir = argv[1];      // Directory containing images
     string featureType = argv[2];   // Type of features to extract
     string outputCSV = argv[3];     // Output CSV file path
+
+    // Special case for DNN features - just copy the existing CSV
+    if (Utils::toLower(featureType) == "dnn" || Utils::toLower(featureType) == "resnet") {
+        cout << "========================================" << endl;
+        cout << "DNN Features (Pre-computed)" << endl;
+        cout << "========================================" << endl;
+        cout << "DNN features are pre-computed in ResNet18_olym.csv" << endl;
+        cout << "No feature extraction needed." << endl;
+        cout << endl;
+        cout << "For querying, use the existing CSV file directly:" << endl;
+        cout << "  bin/data/features/ResNet18_olym.csv" << endl;
+        cout << "========================================" << endl;
+        return 0;
+    }
     
     // Display configuration
     cout << "========================================" << endl;

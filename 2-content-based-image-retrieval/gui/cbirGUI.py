@@ -84,6 +84,11 @@ class CBIRGui:
                 'csv': os.path.join(self.features_dir, 'gabor_features.csv'),
                 'metric': 'gabor',
                 'description': 'Gabor Texture + Color (Advanced)'
+            },
+            'dnn': {
+                'csv': os.path.join(self.features_dir, 'ResNet18_olym.csv'),
+                'metric': 'cosine',
+                'description': 'ResNet18 DNN Embeddings (Pre-computed)'
             }
         }
         

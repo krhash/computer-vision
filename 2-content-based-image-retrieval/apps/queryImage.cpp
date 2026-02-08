@@ -27,6 +27,8 @@
 #include "TextureColorFeature.h"
 #include "WeightedHistogramIntersection.h"
 #include "GaborTextureColorFeature.h"
+#include "DNNFeature.h"
+#include "CosineDistance.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -124,6 +126,10 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             8,    // color bins per channel
             true  // normalize
         );
+    } else if (type == "dnn" || type == "resnet") {
+        // Task 5: DNN features (pre-computed ResNet18 embeddings)
+        // Features are loaded from CSV, not computed from images
+        return new cbir::DNNFeature("../data/features/ResNet18_olym.csv");
     }
     
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
@@ -179,10 +185,14 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
         // Gabor texture + color: 64 + 512
         return new cbir::WeightedHistogramIntersection(64, 512, 0.5, 0.5);
 
+    } else if (type == "cosine") {
+        // Task 5: Cosine distance
+        // Measures angle between vectors (scale-invariant)
+        return new cbir::CosineDistance();
     }
     
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;
-    cerr << "Available: ssd, histogram, multiregion, weighted, gabor" << endl;
+    cerr << "Available: ssd, histogram, multiregion, weighted, gabor, cosine" << endl;
     return nullptr;
 }
 
@@ -320,6 +330,35 @@ int main(int argc, char* argv[]) {
     cout << "Querying database..." << endl;
     cout << "-------------------------------------------" << endl;
     
+    // Special handling for DNN features
+    if (Utils::toLower(featureType) == "dnn" || Utils::toLower(featureType) == "resnet") {
+        cout << "Using pre-computed DNN features..." << endl;
+        
+        // For DNN, we query using features from CSV, not by extracting from image
+        DNNFeature* dnnExtractor = dynamic_cast<DNNFeature*>(extractor);
+        if (dnnExtractor) {
+            // Get query features by filename
+            string queryFilename = Utils::getFilename(targetImage);
+            cv::Mat queryFeatures = dnnExtractor->getFeaturesByFilename(queryFilename);
+            
+            if (queryFeatures.empty()) {
+                cerr << "Error: No DNN features found for " << queryFilename << endl;
+                return 1;
+            }
+            
+            // Query with pre-loaded features
+            vector<ImageMatch> results = retrieval.queryWithFeatures(queryFeatures, topN);
+            
+            if (results.empty()) {
+                cerr << "Error: No results found" << endl;
+                return 1;
+            }
+            
+            displayResults(targetImage, results);
+            return 0;
+        }
+    }
+
     vector<ImageMatch> results = retrieval.query(queryImage, topN);
     
     // Check if query succeeded
