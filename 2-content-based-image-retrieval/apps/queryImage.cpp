@@ -29,6 +29,8 @@
 #include "GaborTextureColorFeature.h"
 #include "DNNFeature.h"
 #include "CosineDistance.h"
+#include "ProductMatcherFeature.h"
+#include "ProductMatcherDistance.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -51,17 +53,18 @@ void printUsage(const char* programName) {
     cout << "  feature_csv  : CSV file with pre-computed features" << endl;
     cout << "  feature_type : Type of features (must match CSV)" << endl;
     cout << "                 Options: baseline, histogram, chromaticity," << endl;
-    cout << "                          multihistogram, texturecolor, gabor" << endl;
+    cout << "                          multihistogram, texturecolor, gabor," << endl;
+    cout << "                          dnn, productmatcher" << endl;
     cout << "  metric       : Distance metric to use" << endl;
     cout << "                 Options: ssd, histogram, multiregion," << endl;
-    cout << "                          weighted, gabor" << endl;
+    cout << "                          weighted, gabor, cosine, productmatcher" << endl;
     cout << "  topN         : Number of top matches to return" << endl;
     cout << endl;
     cout << "Examples:" << endl;
     cout << "  " << programName << " pic.1016.jpg baseline_features.csv baseline ssd 3" << endl;
     cout << "  " << programName << " pic.0164.jpg histogram_features.csv histogram histogram 3" << endl;
     cout << "  " << programName << " pic.0274.jpg multi_features.csv multihistogram multiregion 3" << endl;
-    cout << "  " << programName << " pic.0535.jpg texture_features.csv texturecolor weighted 3" << endl;
+    cout << "  " << programName << " pic.1072.jpg product_features.csv productmatcher productmatcher 5" << endl;
     cout << endl;
 }
 
@@ -130,6 +133,10 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
         // Task 5: DNN features (pre-computed ResNet18 embeddings)
         // Features are loaded from CSV, not computed from images
         return new cbir::DNNFeature("../data/features/ResNet18_olym.csv");
+    } else if (type == "productmatcher" || type == "product") {
+        return new cbir::ProductMatcherFeature(
+            "../data/features/ResNet18_olym.csv", 0.3, 8
+        );
     }
     
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
@@ -189,6 +196,8 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
         // Task 5: Cosine distance
         // Measures angle between vectors (scale-invariant)
         return new cbir::CosineDistance();
+    } else if (type == "productmatcher" || type == "product") {
+        return new cbir::ProductMatcherDistance(0.6, 0.4);
     }
     
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;
@@ -251,11 +260,11 @@ int main(int argc, char* argv[]) {
     }
     
     // Parse command line arguments
-    string targetImage = argv[1];   // Path to query image
-    string featureCSV = argv[2];    // Pre-computed features CSV file
-    string featureType = argv[3];   // Type of features (must match CSV)
-    string metricType = argv[4];    // Distance metric to use
-    int topN = stoi(argv[5]);       // Number of top matches to return
+    string targetImage = argv[1];
+    string featureCSV = argv[2];
+    string featureType = argv[3];
+    string metricType = argv[4];
+    int topN = stoi(argv[5]);
     
     // Display configuration
     cout << "========================================" << endl;
@@ -269,13 +278,12 @@ int main(int argc, char* argv[]) {
     cout << "========================================" << endl;
     cout << endl;
     
-    // Validate target image exists
+    // Validate files exist
     if (!Utils::fileExists(targetImage)) {
         cerr << "Error: Target image does not exist: " << targetImage << endl;
         return 1;
     }
     
-    // Validate feature CSV exists
     if (!Utils::fileExists(featureCSV)) {
         cerr << "Error: Feature CSV does not exist: " << featureCSV << endl;
         return 1;
@@ -289,21 +297,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Create feature extractor (must match type used to build database)
+    // Create feature extractor
     FeatureExtractor* extractor = createFeatureExtractor(featureType);
     if (extractor == nullptr) {
-        return 1;  // Error message already printed
+        return 1;
     }
     
     // Create distance metric
     DistanceMetric* metric = createDistanceMetric(metricType);
     if (metric == nullptr) {
         delete extractor;
-        return 1;  // Error message already printed
+        return 1;
     }
     
-    // Load pre-computed features from CSV into memory
-    // This loads the entire database (all feature vectors) into RAM
+    // Load feature database
     cout << "Loading feature database..." << endl;
     FeatureDatabase database;
     if (!database.loadFromCSV(featureCSV)) {
@@ -313,53 +320,53 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Setup retrieval system with loaded components
+    // Setup retrieval system
     cout << "Setting up retrieval system..." << endl;
     ImageRetrieval retrieval;
-    retrieval.setFeatureDatabase(&database);      // Database with all pre-computed features
-    retrieval.setFeatureExtractor(extractor);     // Extractor for query image
-    retrieval.setDistanceMetric(metric);          // Metric for comparison
+    retrieval.setFeatureDatabase(&database);
+    retrieval.setFeatureExtractor(extractor);
+    retrieval.setDistanceMetric(metric);
     
     // Perform query
-    // This will:
-    //   1. Extract features from query image
-    //   2. Compare to all features in database
-    //   3. Sort by distance
-    //   4. Return top N matches
     cout << endl;
     cout << "Querying database..." << endl;
     cout << "-------------------------------------------" << endl;
     
-    // Special handling for DNN features
-    if (Utils::toLower(featureType) == "dnn" || Utils::toLower(featureType) == "resnet") {
-        cout << "Using pre-computed DNN features..." << endl;
+    // ⭐ SINGLE results variable declaration
+    vector<ImageMatch> results;
+    
+    // Check for special feature types that need filename-based extraction
+    ProductMatcherFeature* productMatcher = dynamic_cast<ProductMatcherFeature*>(extractor);
+    DNNFeature* dnnExtractor = dynamic_cast<DNNFeature*>(extractor);
+    
+    if (productMatcher) {
+        // ProductMatcher: Needs filename for DNN lookup
+        string queryFilename = Utils::getFilename(targetImage);
+        cv::Mat queryFeatures = productMatcher->extractFeaturesWithFilename(queryImage, queryFilename);
         
-        // For DNN, we query using features from CSV, not by extracting from image
-        DNNFeature* dnnExtractor = dynamic_cast<DNNFeature*>(extractor);
-        if (dnnExtractor) {
-            // Get query features by filename
-            string queryFilename = Utils::getFilename(targetImage);
-            cv::Mat queryFeatures = dnnExtractor->getFeaturesByFilename(queryFilename);
-            
-            if (queryFeatures.empty()) {
-                cerr << "Error: No DNN features found for " << queryFilename << endl;
-                return 1;
-            }
-            
-            // Query with pre-loaded features
-            vector<ImageMatch> results = retrieval.queryWithFeatures(queryFeatures, topN);
-            
-            if (results.empty()) {
-                cerr << "Error: No results found" << endl;
-                return 1;
-            }
-            
-            displayResults(targetImage, results);
-            return 0;
+        if (queryFeatures.empty()) {
+            cerr << "Error: Failed to extract ProductMatcher features" << endl;
+            return 1;
         }
+        
+        results = retrieval.queryWithFeatures(queryFeatures, topN);
+        
+    } else if (dnnExtractor) {
+        // Pure DNN: Needs filename for feature lookup
+        string queryFilename = Utils::getFilename(targetImage);
+        cv::Mat queryFeatures = dnnExtractor->getFeaturesByFilename(queryFilename);
+        
+        if (queryFeatures.empty()) {
+            cerr << "Error: No DNN features found for " << queryFilename << endl;
+            return 1;
+        }
+        
+        results = retrieval.queryWithFeatures(queryFeatures, topN);
+        
+    } else {
+        // Normal query: Extract features from image
+        results = retrieval.query(queryImage, topN);
     }
-
-    vector<ImageMatch> results = retrieval.query(queryImage, topN);
     
     // Check if query succeeded
     if (results.empty()) {
@@ -369,9 +376,6 @@ int main(int argc, char* argv[]) {
     
     // Display results
     displayResults(targetImage, results);
-    
-    // Cleanup (not strictly necessary as program exits, but good practice)
-    // Note: extractor and metric are managed by smart pointers in retrieval
     
     return 0;
 }

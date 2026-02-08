@@ -89,6 +89,11 @@ class CBIRGui:
                 'csv': os.path.join(self.features_dir, 'ResNet18_olym.csv'),
                 'metric': 'cosine',
                 'description': 'ResNet18 DNN Embeddings (Pre-computed)'
+            },
+            'productmatcher': {
+                'csv': os.path.join(self.features_dir, 'product_features.csv'),
+                'metric': 'productmatcher',
+                'description': 'Task 7: DNN(60%) + Center-Color(40%)'
             }
         }
         

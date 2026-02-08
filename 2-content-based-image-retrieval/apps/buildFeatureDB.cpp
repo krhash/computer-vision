@@ -24,6 +24,7 @@
 #include "TextureColorFeature.h"
 #include "GaborTextureColorFeature.h"
 #include "DNNFeature.h"
+#include "ProductMatcherFeature.h"
 #include <iostream>
 #include <string>
 
@@ -44,13 +45,14 @@ void printUsage(const char* programName) {
     cout << "  image_dir    : Directory containing images" << endl;
     cout << "  feature_type : Type of features to extract" << endl;
     cout << "                 Options: baseline, histogram, chromaticity," << endl;
-    cout << "                          multihistogram, texturecolor, gabor" << endl;
+    cout << "                          multihistogram, texturecolor, gabor," << endl;
+    cout << "                          dnn, productmatcher" << endl;  // ⭐ UPDATED
     cout << "  output_csv   : Output CSV file for features" << endl;
     cout << endl;
     cout << "Example:" << endl;
     cout << "  " << programName << " data/images baseline baseline_features.csv" << endl;
     cout << "  " << programName << " data/images histogram histogram_features.csv" << endl;
-    cout << "  " << programName << " data/images multihistogram multi_features.csv" << endl;
+    cout << "  " << programName << " data/images productmatcher product_features.csv" << endl;
     cout << endl;
 }
 
@@ -125,11 +127,18 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
         // NOTE: For DNN, buildFeatureDB just copies the existing CSV
         // No feature extraction is performed
         return new cbir::DNNFeature();
+    } else if (type == "productmatcher" || type == "product") {
+        // Task 7: Custom ProductMatcher feature
+        // DNN (85%) + Center-region color (15%)
+        return new cbir::ProductMatcherFeature(
+            "../data/features/ResNet18_olym.csv",  // DNN features path
+            0.3,  // Center 50% of image
+            8     // 8 bins per color channel
+        );
     }
-    
-    // Unknown feature type
+
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
-    cerr << "Available: baseline, histogram, chromaticity, multihistogram, texturecolor, gabor, dnn" << endl;
+    cerr << "Available: baseline, histogram, chromaticity, multihistogram, texturecolor, gabor, dnn, productmatcher" << endl;
     return nullptr;
 }
 
@@ -149,18 +158,16 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
  * @return 0 on success, 1 on error
  */
 int main(int argc, char* argv[]) {
-    // Validate command line arguments
     if (argc != 4) {
         printUsage(argv[0]);
         return 1;
     }
     
-    // Parse command line arguments
-    string imageDir = argv[1];      // Directory containing images
-    string featureType = argv[2];   // Type of features to extract
-    string outputCSV = argv[3];     // Output CSV file path
+    string imageDir = argv[1];
+    string featureType = argv[2];
+    string outputCSV = argv[3];
 
-    // Special case for DNN features - just copy the existing CSV
+    // ⭐ ADDED: Special case for pure DNN features
     if (Utils::toLower(featureType) == "dnn" || Utils::toLower(featureType) == "resnet") {
         cout << "========================================" << endl;
         cout << "DNN Features (Pre-computed)" << endl;
@@ -168,13 +175,12 @@ int main(int argc, char* argv[]) {
         cout << "DNN features are pre-computed in ResNet18_olym.csv" << endl;
         cout << "No feature extraction needed." << endl;
         cout << endl;
-        cout << "For querying, use the existing CSV file directly:" << endl;
-        cout << "  bin/data/features/ResNet18_olym.csv" << endl;
+        cout << "For querying, use the existing CSV file:" << endl;
+        cout << "  ../data/features/ResNet18_olym.csv" << endl;
         cout << "========================================" << endl;
         return 0;
     }
     
-    // Display configuration
     cout << "========================================" << endl;
     cout << "Building Feature Database" << endl;
     cout << "========================================" << endl;
@@ -184,59 +190,118 @@ int main(int argc, char* argv[]) {
     cout << "========================================" << endl;
     cout << endl;
     
-    // Validate image directory exists
     if (!Utils::directoryExists(imageDir)) {
         cerr << "Error: Image directory does not exist: " << imageDir << endl;
         return 1;
     }
     
-    // Create feature extractor for specified type
     FeatureExtractor* extractor = createFeatureExtractor(featureType);
     if (extractor == nullptr) {
-        return 1;  // Error message already printed by createFeatureExtractor
+        return 1;
     }
     
-    // Create feature database (in-memory map)
-    FeatureDatabase database;
+    // ⭐ ADDED: Check if ProductMatcher for special handling
+    ProductMatcherFeature* productMatcher = dynamic_cast<ProductMatcherFeature*>(extractor);
+    bool isProductMatcher = (productMatcher != nullptr);
     
-    // Step 1: Extract features from all images in directory
-    cout << "Step 1: Extracting features from images..." << endl;
-    cout << "-------------------------------------------" << endl;
+    if (isProductMatcher) {
+        cout << "ProductMatcher mode: Combining DNN + Center-region color" << endl;
+        cout << endl;
+    }
     
-    bool success = database.buildDatabase(imageDir, extractor, false);
+    // Get list of image files
+    cout << "Scanning image directory..." << endl;
+    vector<string> imageFiles = Utils::getImageFiles(imageDir, false);
     
-    if (!success) {
-        cerr << "Error: Failed to build feature database" << endl;
+    if (imageFiles.empty()) {
+        cerr << "Error: No image files found in " << imageDir << endl;
         delete extractor;
         return 1;
     }
     
+    cout << "Found " << imageFiles.size() << " images" << endl;
     cout << endl;
     
-    // Step 2: Save features to CSV file for persistence
+    // Step 1: Extract features from all images
+    cout << "Step 1: Extracting features from images..." << endl;
+    cout << "-------------------------------------------" << endl;
+    
+    map<string, cv::Mat> features;
+    int successCount = 0;
+    int failCount = 0;
+    
+    for (const auto& imagePath : imageFiles) {
+        // Load image
+        cv::Mat image = Utils::loadImage(imagePath);
+        
+        if (image.empty()) {
+            cerr << "Warning: Failed to load " << imagePath << endl;
+            failCount++;
+            continue;
+        }
+        
+        // Extract features
+        cv::Mat featureVec;
+        string filename = Utils::getFilename(imagePath);
+        
+        if (isProductMatcher) {
+            // handling for ProductMatcher
+            featureVec = productMatcher->extractFeaturesWithFilename(image, filename);
+        } else {
+            // Normal feature extraction
+            featureVec = extractor->extractFeatures(image);
+        }
+        
+        if (featureVec.empty()) {
+            cerr << "Warning: Failed to extract features from " << filename << endl;
+            failCount++;
+            continue;
+        }
+        
+        // Store features
+        features[filename] = featureVec;
+        successCount++;
+        
+        // Progress indicator
+        if ((successCount + failCount) % 100 == 0) {
+            cout << "  Processed " << (successCount + failCount) 
+                 << "/" << imageFiles.size() << " images..." << endl;
+        }
+    }
+    
+    cout << "Feature extraction complete!" << endl;
+    cout << "  Success: " << successCount << endl;
+    cout << "  Failed:  " << failCount << endl;
+    cout << endl;
+    
+    if (successCount == 0) {
+        cerr << "Error: No features extracted" << endl;
+        delete extractor;
+        return 1;
+    }
+    
+    // Step 2: Save features to CSV
     cout << "Step 2: Saving features to CSV..." << endl;
     cout << "-------------------------------------------" << endl;
     
-    success = database.saveToCSV(outputCSV);
+    bool saveSuccess = Utils::writeFeaturesCSV(outputCSV, features, "filename");
     
-    if (!success) {
+    if (!saveSuccess) {
         cerr << "Error: Failed to save features to CSV" << endl;
         delete extractor;
         return 1;
     }
     
-    // Success! Display summary
     cout << endl;
     cout << "========================================" << endl;
     cout << "SUCCESS!" << endl;
     cout << "========================================" << endl;
     cout << "Feature database saved to: " << outputCSV << endl;
-    cout << "Total images processed: " << database.size() << endl;
+    cout << "Total images processed: " << successCount << endl;
     cout << endl;
     cout << "Next step: Query images using queryImage" << endl;
     cout << "========================================" << endl;
     
-    // Cleanup
     delete extractor;
     
     return 0;

@@ -77,6 +77,7 @@ set(CBIR_CORE_SOURCES
     src/GaborTextureColorFeature.cpp
     src/MultiRegionHistogramIntersection.cpp
     src/DNNFeature.cpp
+    src/ProductMatcherFeature.cpp
     
     # Distance metrics
     src/SSDMetric.cpp
@@ -84,6 +85,7 @@ set(CBIR_CORE_SOURCES
     src/WeightedHistogramIntersection.cpp
     src/MultiRegionHistogramIntersection.cpp
     src/CosineDistance.cpp
+    src/ProductMatcherDistance.cpp
     
     # Database and retrieval
     src/FeatureDatabase.cpp
@@ -107,6 +109,8 @@ set(CBIR_CORE_HEADERS
     include/MultiRegionHistogramIntersection.h
     include/DNNFeature.h
     include/CosineDistance.h
+    include/ProductMatcherFeature.h
+    include/ProductMatcherDistance.h
     include/FeatureDatabase.h
     include/ImageRetrieval.h
     include/Utils.h
