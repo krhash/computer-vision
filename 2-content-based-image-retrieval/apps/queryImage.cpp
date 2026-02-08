@@ -23,6 +23,7 @@
 #include "HistogramFeature.h"
 #include "HistogramIntersection.h"
 #include "MultiHistogramFeature.h"
+#include "MultiRegionHistogramIntersection.h"
 #include "TextureColorFeature.h"
 #include "WeightedHistogramIntersection.h"
 #include "GaborTextureColorFeature.h"
@@ -47,14 +48,18 @@ void printUsage(const char* programName) {
     cout << "  target_image : Path to query image" << endl;
     cout << "  feature_csv  : CSV file with pre-computed features" << endl;
     cout << "  feature_type : Type of features (must match CSV)" << endl;
-    cout << "                 Options: baseline, histogram, chromaticity" << endl;
+    cout << "                 Options: baseline, histogram, chromaticity," << endl;
+    cout << "                          multihistogram, texturecolor, gabor" << endl;
     cout << "  metric       : Distance metric to use" << endl;
-    cout << "                 Options: ssd, histogram" << endl;
+    cout << "                 Options: ssd, histogram, multiregion," << endl;
+    cout << "                          weighted, gabor" << endl;
     cout << "  topN         : Number of top matches to return" << endl;
     cout << endl;
-    cout << "Example:" << endl;
-    cout << "  " << programName << " data/images/pic.1016.jpg baseline_features.csv baseline ssd 3" << endl;
-    cout << "  " << programName << " data/images/pic.0164.jpg histogram_features.csv histogram histogram 3" << endl;
+    cout << "Examples:" << endl;
+    cout << "  " << programName << " pic.1016.jpg baseline_features.csv baseline ssd 3" << endl;
+    cout << "  " << programName << " pic.0164.jpg histogram_features.csv histogram histogram 3" << endl;
+    cout << "  " << programName << " pic.0274.jpg multi_features.csv multihistogram multiregion 3" << endl;
+    cout << "  " << programName << " pic.0535.jpg texture_features.csv texturecolor weighted 3" << endl;
     cout << endl;
 }
 
@@ -87,7 +92,9 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             16, true
         );
     } else if (type == "multihistogram" || type == "multi") {
-        // MUST match parameters used in buildFeatureDB!
+        // Task 3: MUST match buildFeatureDB parameters!
+        // GRID split, 4 regions (2×2 quadrants)
+        // Total: 4 × 512 = 2048 values
         return new cbir::MultiHistogramFeature(
             cbir::MultiHistogramFeature::SplitType::GRID,
             4,
@@ -138,10 +145,27 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
     string type = cbir::Utils::toLower(metricType);
     
     if (type == "ssd") {
+
         return new cbir::SSDMetric();
+
     } else if (type == "histogram" || type == "intersection") {
+
         return new cbir::HistogramIntersection();
+
+    } else if (type == "multiregion") {
+
+        // Task 3: Custom multi-region histogram intersection
+        // Computes intersection per region, combines with equal weights
+        // For 2×2 grid: 4 regions, 512 bins each
+        std::vector<double> equalWeights = {0.25, 0.25, 0.25, 0.25};
+        return new cbir::MultiRegionHistogramIntersection(
+            4,              // 4 regions
+            512,            // 512 bins per region
+            equalWeights    // Equal weights for all regions
+        );
+        
     } else if (type == "weighted" || type == "texturecolor") {
+
         // Weighted intersection: 50% texture, 50% color
         return new cbir::WeightedHistogramIntersection(
             16,   // texture dimension
@@ -149,13 +173,16 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
             0.5,  // 50% weight for texture
             0.5   // 50% weight for color
         );
+
     } else if (type == "gabor" || type == "gaborweighted") {
+
         // Gabor texture + color: 64 + 512
         return new cbir::WeightedHistogramIntersection(64, 512, 0.5, 0.5);
+
     }
     
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;
-    cerr << "Available: ssd, histogram, weighted" << endl;
+    cerr << "Available: ssd, histogram, multiregion, weighted, gabor" << endl;
     return nullptr;
 }
 

@@ -42,7 +42,8 @@ void printUsage(const char* programName) {
     cout << "Arguments:" << endl;
     cout << "  image_dir    : Directory containing images" << endl;
     cout << "  feature_type : Type of features to extract" << endl;
-    cout << "                 Options: baseline, histogram, chromaticity, multihistogram" << endl;
+    cout << "                 Options: baseline, histogram, chromaticity," << endl;
+    cout << "                          multihistogram, texturecolor, gabor" << endl;
     cout << "  output_csv   : Output CSV file for features" << endl;
     cout << endl;
     cout << "Example:" << endl;
@@ -84,15 +85,17 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             true    // normalize to sum=1.0
         );
     } else if (type == "multihistogram" || type == "multi") {
-        // Multi-region RGB Histogram: 2 horizontal regions (top/bottom)
-        // Each region: 8x8x8 = 512 bins
-        // Total: 2 × 512 = 1024 values
+        // Task 3: Multi-region RGB histogram
+        // Split: GRID (2×2 quadrants)
+        // Regions: 4 (top-left, top-right, bottom-left, bottom-right)
+        // Each region: 8×8×8 = 512 bins
+        // Total: 4 × 512 = 2048 values
         return new cbir::MultiHistogramFeature(
-            cbir::MultiHistogramFeature::SplitType::GRID,  // Split top/bottom
-            4,                                                    // 2 regions
-            cbir::HistogramFeature::HistogramType::RGB,          // RGB histogram
-            8,                                                    // 8 bins per channel
-            true                                                  // normalize
+            cbir::MultiHistogramFeature::SplitType::GRID,
+            4,
+            cbir::HistogramFeature::HistogramType::RGB,
+            8,
+            true
         );
     } else if (type == "texturecolor" || type == "texture") {
         // Texture + Color: Sobel gradient histogram + RGB histogram

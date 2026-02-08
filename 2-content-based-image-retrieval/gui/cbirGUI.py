@@ -72,8 +72,8 @@ class CBIRGui:
             },
             'multihistogram': {
                 'csv': os.path.join(self.features_dir, 'multi_features.csv'),
-                'metric': 'histogram',
-                'description': 'Multi-Region Histogram (Top/Bottom)'
+                'metric': 'multiregion',
+                'description': 'Multi-Region Histogram (2×2 Grid)'
             },
             'texturecolor': {
                 'csv': os.path.join(self.features_dir, 'texture_features.csv'),
