@@ -10,6 +10,7 @@
 #ifndef DISTANCE_METRIC_H
 #define DISTANCE_METRIC_H
 
+
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <memory>
@@ -18,65 +19,65 @@ namespace cbir {
 
 /**
  * @class DistanceMetric
- * @brief Abstract base class for distance/similarity metrics
+ * @brief Abstract base class for distance/similarity metrics.
  * 
  * This class defines the interface for computing distances between feature
  * vectors. Distance metrics quantify the similarity between two images based
  * on their extracted features. Lower distances indicate higher similarity.
  * 
  * Derived classes must implement:
- * - compute(): Calculate distance between two feature vectors
- * - getMetricName(): Return the name of the metric
+ * - compute(): Calculate distance between two feature vectors.
+ * - getMetricName(): Return the name of the metric.
  * 
  * Common distance metrics include:
- * - Sum of Squared Differences (SSD / L2 distance)
- * - Histogram Intersection
- * - Cosine Distance
- * - Manhattan Distance (L1)
- * - Chi-Square Distance
+ * - Sum of Squared Differences (SSD / L2 distance).
+ * - Histogram Intersection.
+ * - Cosine Distance.
+ * - Manhattan Distance (L1).
+ * - Chi-Square Distance.
  * 
  * @author Krushna Sanjay Sharma
  */
 class DistanceMetric {
 public:
     /**
-     * @brief Virtual destructor for proper cleanup of derived classes
+     * @brief Virtual destructor for proper cleanup of derived classes.
      */
     virtual ~DistanceMetric() = default;
 
     /**
-     * @brief Compute distance between two feature vectors
+     * @brief Compute distance between two feature vectors.
      * 
      * This pure virtual function must be implemented by all derived classes.
      * It computes the distance/dissimilarity between two feature vectors.
      * 
-     * @param features1 First feature vector
-     * @param features2 Second feature vector
-     * @return double Distance value (lower = more similar)
+     * @param features1 First feature vector.
+     * @param features2 Second feature vector.
+     * @return double Distance value (lower = more similar).
      * 
-     * @note Feature vectors must have compatible dimensions
-     * @note Return 0.0 when comparing identical features
-     * @note Return positive values for dissimilar features
+     * @note Feature vectors must have compatible dimensions.
+     * @note Return 0.0 when comparing identical features.
+     * @note Return positive values for dissimilar features.
      */
     virtual double compute(const cv::Mat& features1, 
                           const cv::Mat& features2) = 0;
 
     /**
-     * @brief Get the name of this distance metric
+     * @brief Get the name of this distance metric.
      * 
-     * @return std::string Descriptive name (e.g., "SSD", "HistogramIntersection")
+     * @return std::string Descriptive name (e.g., "SSD", "HistogramIntersection").
      */
     virtual std::string getMetricName() const = 0;
 
     /**
-     * @brief Check if two feature vectors are compatible for comparison
+     * @brief Check if two feature vectors are compatible for comparison.
      * 
      * Validates that the feature vectors have compatible dimensions and types
      * for distance computation.
      * 
-     * @param features1 First feature vector
-     * @param features2 Second feature vector
-     * @return bool True if compatible, false otherwise
+     * @param features1 First feature vector.
+     * @param features2 Second feature vector.
+     * @return bool True if compatible, false otherwise.
      */
     virtual bool areCompatible(const cv::Mat& features1, 
                                const cv::Mat& features2) const {
@@ -100,7 +101,7 @@ public:
 
 protected:
     /**
-     * @brief Protected constructor - only derived classes can instantiate
+     * @brief Protected constructor - only derived classes can instantiate.
      */
     DistanceMetric() = default;
 };

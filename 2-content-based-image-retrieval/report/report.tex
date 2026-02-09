@@ -1,0 +1,352 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+% Remove paragraph indentation globally
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+% Custom spacing for paragraph-like subheadings
+\newcommand{\subpara}[1]{\vspace{0.5em}\textbf{#1}\par}
+
+% Title Information
+\title{\textbf{Project 2 - Content-Based Image Retrieval} \\ CS 5330 - Computer Vision}
+\author{Krushna Sanjay Sharma}
+\date{February 8, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Project Overview}
+
+This project implements a comprehensive content-based image retrieval (CBIR) system that matches images based on visual features rather than metadata. The system extracts multiple feature representations including baseline histogram matching, multi-histogram methods, texture analysis, and deep learning embeddings. A Python GUI enables interactive querying with real-time visualization of matching results.
+
+Key achievements include implementation of various distance metrics (sum of squared differences, histogram intersection, multi-region histogram intersection), custom texture features using Gabor filters, integration of pre-trained ResNet-18 embeddings for semantic similarity, and a novel ProductMatcher feature that focuses on centered objects. The system demonstrates superior performance of deep features over handcrafted features for complex image matching tasks.
+
+\section{Video Demonstration}
+
+\textbf{CBIR System Demo:} \\
+\url{https://drive.google.com/file/d/YOUR_VIDEO_LINK_HERE/view?usp=sharing}
+
+This video showcases the interactive GUI and all implemented feature matching methods including baseline, histogram, multi-histogram, texture-color, Gabor texture, deep learning, and ProductMatcher approaches with real-time retrieval results.
+
+\section{Task Results}
+
+\subsection{Task 1: Baseline Matching}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/baseline_matching.png}
+    \caption{Task 1: Baseline 7×7 Center Square Matching}
+\end{figure}
+
+\subpara{Implementation:}
+Extracted 7×7 pixel region from center of each image and flattened to create feature vector. For grayscale images, this produces 49 values; for color images, 147 values (49 pixels × 3 channels). Used sum of squared differences (SSD) as distance metric.
+
+\subpara{Results:}
+The baseline method successfully matches images with similar center regions but fails to capture overall object appearance. Objects with similar colored centers but different shapes or overall appearance are incorrectly ranked as high matches. This demonstrates the limitation of using only local information for global image matching.
+
+\subsection{Task 2: Histogram Matching}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/histogram_matching.png}
+    \caption{Task 2: Whole Image RGB Histogram Matching}
+\end{figure}
+
+\subpara{Implementation:}
+Manually computed RGB histograms over entire image using 8 bins per channel (8×8×8 = 512 total bins) without using OpenCV's calcHist function. Applied histogram intersection metric: $\text{intersection} = \sum \min(H_1[i], H_2[i])$, then converted to distance: $d = 1 - \text{intersection}$.
+
+\subpara{Comparison with Baseline:}
+Whole-image histograms capture global color distribution significantly better than center-only features. Objects with similar overall color schemes rank higher regardless of spatial arrangement. However, this method remains insensitive to spatial layout and can match images with similar colors but completely different object structures or arrangements.
+
+\subsection{Task 3: Multi-Histogram Matching}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/multi_histogram.png}
+    \caption{Task 3: Multi-Histogram with 2×2 Grid Split}
+\end{figure}
+
+\subpara{Implementation:}
+Divided images into 2×2 grid (4 quadrants: top-left, top-right, bottom-left, bottom-right). Computed separate RGB histograms for each region (8 bins/channel = 512 bins per region). Concatenated into single feature vector of 2048 values (4 regions × 512 bins).
+
+\subpara{Custom Distance Metric:}
+Implemented MultiRegionHistogramIntersection that computes histogram intersection separately for each spatial region and combines results using weighted averaging. Each region gets equal weight (0.25) by default. This is the custom distance metric designed for Task 3.
+
+\subpara{Results:}
+Multi-histogram approach significantly improves matching by incorporating spatial information. Objects with similar color distribution in corresponding spatial regions rank higher. This reduces false positives from images with same colors in different locations. The grid split proves particularly effective for matching objects with consistent spatial structure.
+
+\subsection{Task 4: Texture and Color Matching}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/texture_color.png}
+    \caption{Task 4: Combined Sobel Texture and Color Features}
+\end{figure}
+
+\subpara{Texture Features:}
+Computed Sobel gradient magnitude for each pixel: $M = \sqrt{G_x^2 + G_y^2}$ where $G_x$ and $G_y$ are Sobel X and Y responses. Created histogram of magnitudes (16 bins covering 0-255 range) to capture edge and texture patterns.
+
+\subpara{Feature Combination:}
+Concatenated texture histogram (16 bins) with RGB color histogram (512 bins) for total of 528 values. Used WeightedHistogramIntersection metric with equal weighting (50\% texture, 50\% color).
+
+\subpara{Results:}
+Combined features better discriminate between objects with similar colors but different surface patterns. Texture information helps distinguish smooth objects from textured ones, and identifies patterns like fabric weaves or wood grain. Performance improves particularly for objects where texture is a defining characteristic.
+
+\subsection{Task 5: Deep Network Embedding}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/deep_embeddings_1.png}
+        \caption{Query example 1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/deep_embeddings_2.png}
+        \caption{Query example 2}
+    \end{subfigure}
+    \caption{Task 5: ResNet-18 Deep Learning Features}
+\end{figure}
+
+\subpara{Network:}
+Used pre-trained ResNet-18 model (ImageNet weights) with final classification layer removed. Extracted 512-dimensional embedding from global average pooling layer. Features were pre-computed and loaded from CSV file (ResNet18\_olym.csv).
+
+\subpara{Distance Metric:}
+Applied cosine distance to measure similarity in embedding space: $d = 1 - \frac{\vec{f_1} \cdot \vec{f_2}}{||\vec{f_1}|| \cdot ||\vec{f_2}||}$. Cosine distance is scale-invariant and well-suited for high-dimensional neural network embeddings.
+
+\subpara{Results:}
+Deep embeddings capture high-level semantic similarity far exceeding handcrafted features. Successfully matches objects of same category regardless of color, orientation, or texture variations. Handles complex scenes and identifies semantic relationships invisible to traditional methods. This demonstrates the power of learned representations over manually engineered features.
+
+\subsection{Task 6: Custom Design (ProductMatcher Feature)}
+
+\subpara{Motivation:}
+Observation that whole-image histograms include backgrounds (walls, tables, etc.) which interfere with matching the actual objects. Product photography typically centers subjects, so focusing on the center region should improve object matching.
+
+\subpara{Implementation:}
+Combined two complementary features:
+\begin{itemize}
+    \item ResNet-18 DNN embeddings (512 dims) for semantic object understanding
+    \item Center-region RGB histogram (512 dims) for focused color analysis
+\end{itemize}
+
+Extracted center 30\% of image for color histogram computation, filtering out peripheral backgrounds. Total feature dimension: 1024 values.
+
+\subpara{Distance Metric:}
+Custom ProductMatcherDistance combines cosine distance for DNN embeddings (60\% weight) with histogram intersection for center color (40\% weight).
+
+\subsubsection{Target Image 1: Red Duck Toy}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/productmatcher_duck.png}
+        \caption{ProductMatcher results}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/productmatcher_duck_dnn.png}
+        \caption{Pure DNN results}
+    \end{subfigure}
+    \caption{Task 6.1: Red Duck Toy Query - Top 5 Matches Comparison}
+\end{figure}
+
+\subpara{ProductMatcher Results:}
+ProductMatcher successfully finds the same red duck toy in different orientations and contexts. The top 5 matches include the duck on a bicycle seat, in different positions, and against various backgrounds. The 40\% center-region color weight ensures that the distinctive red color of the duck is preserved, enabling instance-level matching regardless of orientation or background variation.
+
+\subpara{Pure DNN Results:}
+Pure DNN embeddings return semantically similar items: other toys, red objects, or contextually related scenes. While these results are semantically reasonable (toy-like objects, colorful items), they do not consistently match the specific red duck instance. The DNN focuses on categorical similarity rather than the specific product's visual appearance.
+
+\subpara{Analysis:}
+The color histogram component (40\% weight) grounds the search in actual visual appearance, ensuring that the specific red duck is found even when positioned differently or in various contexts. This demonstrates instance-level discrimination versus categorical matching.
+
+\subsubsection{Target Image 2: Face Mask}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/productmatcher_mask.png}
+        \caption{ProductMatcher results}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/productmatcher_mask_dnn.png}
+        \caption{Pure DNN results}
+    \end{subfigure}
+    \caption{Task 6.2: Face Mask Query - Top 5 Matches Comparison}
+\end{figure}
+
+\subpara{ProductMatcher Results:}
+ProductMatcher excels at finding actual mask objects by focusing on the mask's distinctive color and appearance in the center region. The top 5 matches include various masks (blue surgical masks, patterned fabric masks) as objects, not faces. The center-region color captures the mask's appearance characteristics, enabling precise object matching.
+
+\subpara{Pure DNN Results:}
+Pure DNN embeddings return images of people's faces because the semantic features associate masks with faces in the training data. The DNN has learned high-level relationships (masks are worn on faces) rather than focusing on the mask as a standalone object. Results include portraits and face images, which are semantically related but miss the actual mask object.
+
+\subpara{Analysis:}
+This example demonstrates a critical limitation of pure semantic embeddings: they capture contextual associations (masks to faces) rather than object-level features. ProductMatcher's 40\% color weight overcomes this by explicitly encoding the mask's visual appearance, ensuring the search focuses on mask objects rather than their typical context.
+
+\subpara{Key Insights:}
+ProductMatcher's hybrid approach (60\% DNN + 40\% center-region color) provides:
+\begin{itemize}
+    \item \textbf{Instance-level discrimination:} Finds the same specific product (exact duck, specific mask type) rather than just similar categories
+    \item \textbf{Appearance grounding:} Color features prevent semantic drift (masks to faces)
+    \item \textbf{Orientation invariance:} Matches objects in different positions/orientations through consistent center-region color
+    \item \textbf{Background robustness:} Center-region focus ignores peripheral backgrounds
+\end{itemize}
+
+The 40\% color weight is crucial for matching specific products based on actual visual appearance rather than just semantic similarity. This demonstrates the power of hybrid features combining learned deep representations with task-specific handcrafted features.
+
+\section{Extensions}
+
+\subsection{Extension 1: Gabor Texture Features}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/gabor_features.png}
+    \caption{Extension 1: Gabor Filter Bank Texture Analysis}
+\end{figure}
+
+\subpara{Implementation:}
+Applied Gabor filter bank as an advanced texture representation alternative to Sobel gradients:
+\begin{itemize}
+    \item 4 orientations: 0°, 45°, 90°, 135°
+    \item 2 scales: wavelengths of 5 pixels (fine) and 10 pixels (coarse)
+    \item Total: 8 Gabor filters (4 orientations × 2 scales)
+    \item 8 bins per filter response histogram = 64 texture bins
+\end{itemize}
+
+Combined with RGB color histogram (512 bins) for total of 576 values. Used OpenCV's getGaborKernel function to generate filters.
+
+\subpara{Rationale:}
+Gabor filters model human visual cortex response to oriented frequency patterns. Multiple scales capture texture at different granularities (fine versus coarse patterns) while orientations detect directional structures. This representation is more robust and comprehensive than simple gradient-based texture analysis.
+
+\subpara{Results:}
+Gabor features excel at matching objects with regular texture patterns such as fabrics, woven materials, and repetitive structures. Performance improvement particularly noticeable for textured objects like clothing, baskets, and patterned surfaces. More discriminative than Sobel-based texture for objects where directional patterns matter.
+
+\subsection{Extension 2: Interactive Python GUI}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/gui_overview.png}
+    \caption{Extension 2: Interactive CBIR System GUI}
+\end{figure}
+
+\subpara{Features:}
+\begin{itemize}
+    \item Grid display of all dataset images with thumbnails
+    \item Click-to-query interaction for selecting any image as query
+    \item Real-time feature computation and matching visualization
+    \item Dropdown menu for selecting feature methods (baseline, histogram, multi-histogram, texture-color, Gabor, DNN, ProductMatcher, FaceAware)
+    \item Top-N results display with similarity scores
+    \item Side-by-side comparison of query and matched images
+    \item Visual feedback with result ranking
+\end{itemize}
+
+\subpara{Implementation:}
+Built with Tkinter for responsive cross-platform interface. Caches computed features for instant retrieval after initial computation. Integrates with C++ backend feature extraction through command-line interface. Displays quantitative similarity metrics alongside visual results for evaluation.
+
+\subpara{Impact:}
+The GUI dramatically improves usability and enables rapid experimentation with different feature types. Visual comparison helps identify failure modes and understand feature behavior. Real-time feedback makes the CBIR system accessible to non-technical users.
+
+\subsection{Extension 3: FaceAware Adaptive Feature}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/faceaware_features.png}
+    \caption{Extension 3: Adaptive Face-Aware Feature Selection}
+\end{figure}
+
+\subpara{Concept:}
+Intelligent content-aware CBIR that automatically adapts feature extraction based on image content. Uses OpenCV Haar Cascade classifier to detect faces, then switches between two feature strategies:
+
+\textbf{WITH faces detected:} Extract face-specific features
+\begin{itemize}
+    \item DNN embeddings (512 dims) for scene understanding
+    \item Face count (1 dim) for number of people, normalized
+    \item Face region colors (512 dims) for clothing and context colors around faces
+    \item Spatial layout (4 dims) for average position and spread of faces
+    \item Total: 1029 dimensions
+\end{itemize}
+
+\textbf{WITHOUT faces:} Fall back to ProductMatcher features
+\begin{itemize}
+    \item DNN embeddings (512 dims)
+    \item Center-region color (512 dims)
+    \item Total: 1024 dimensions
+\end{itemize}
+
+\subpara{Face Region Color Extraction:}
+Expands detected face regions by 50\% to capture clothing and context colors, not just skin tones. Creates RGB histogram only from these expanded regions to characterize the people and their surroundings.
+
+\subpara{Spatial Layout Features:}
+Computes 4D vector containing average x position, average y position, spread in x direction, and spread in y direction. These values are normalized and represent average face position and spatial variance. This captures group composition (single person versus group, centered versus spread out).
+
+\subpara{Distance Metric:}
+Custom FaceAwareDistance automatically detects feature type by dimension and applies appropriate combination:
+\begin{itemize}
+    \item Face mode: 50\% DNN + 10\% count + 30\% color + 10\% spatial
+    \item Non-face mode: 85\% DNN + 15\% color (ProductMatcher weights)
+\end{itemize}
+
+\subpara{Results:}
+FaceAware features excel at matching photos with similar group compositions, clothing colors, and spatial arrangements. Successfully distinguishes single portraits from group photos, finds images with similar number of people, and matches based on scene context around faces. The adaptive strategy provides optimal matching for both people-centric and object-centric images.
+
+\subpara{Comparison with Pure DNN:}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{projects/report_2/images/faceaware_dnn.png}
+    \caption{Pure DNN Query Results for Group Photo}
+\end{figure}
+
+Pure DNN embeddings are effective at identifying images with faces and people. However, they lack explicit understanding of face count and spatial arrangement. When querying a group photo (multiple faces), pure DNN may return a mix of single-person portraits, pairs, and groups without distinguishing between these categories. The semantic similarity focuses on images with people but does not prioritize matching the number of people or their spatial configuration.
+
+FaceAware features address this limitation through explicit face-specific components. The face count feature (10\% weight) ensures matching based on group size: querying a group photo prioritizes other group photos over individual portraits. Face region colors (30\% weight) capture clothing and environmental context that tends to be consistent in group settings (event photos, family gatherings). Spatial layout (10\% weight) matches on composition: spread-out group arrangements versus centered single portraits.
+
+In practice, when querying a group photo with multiple faces, FaceAware consistently prioritizes other multi-person images with similar group composition, while pure DNN returns a broader mix including many single-person images. For single-person queries, both methods perform comparably since the face count and spatial features naturally match. This demonstrates how explicit face-aware features improve precision for multi-face queries where group composition matters.
+
+\section{Reflection}
+
+This project provided deep insights into fundamental tradeoffs in feature representation for image retrieval. Implementing multiple approaches from scratch revealed how different features capture complementary aspects of visual similarity. The progression from simple baseline features to sophisticated deep learning demonstrated both the power and limitations of each approach.
+
+Handcrafted features like histograms and Sobel texture offer interpretability and computational efficiency but struggle with semantic understanding and viewpoint variations. The multi-histogram approach showed how incorporating spatial information significantly improves matching without added complexity. Gabor filters demonstrated that domain knowledge about human perception can enhance texture analysis beyond basic gradients.
+
+The stark performance difference between traditional methods and deep learning was revelatory. ResNet-18 embeddings immediately captured high-level semantic relationships that would require extensive engineering with handcrafted features. The ProductMatcher innovation showed that hybrid approaches combining deep features with task-specific handcrafted features can outperform either alone by leveraging their complementary strengths.
+
+Building the interactive GUI emphasized the importance of user experience in retrieval systems. Real-time feedback and visual comparison tools proved essential for evaluating matching quality beyond quantitative metrics. The ability to rapidly test different feature methods highlighted each approach's strengths and failure modes in ways that offline evaluation could not.
+
+The FaceAware extension demonstrated the value of content-aware feature selection. Rather than forcing a single feature representation on all images, adapting to image content (faces versus objects) provides more relevant matches. This represents a step toward more intelligent CBIR systems that understand context.
+
+Key lessons learned: (1) Feature design must match the semantic level of desired similarity, (2) Deep learning captures patterns invisible to manual engineering, (3) Hybrid approaches can leverage complementary strengths, (4) Interactive visualization reveals insights metrics alone cannot provide, (5) Content-aware adaptation improves relevance across diverse queries.
+
+Future directions include exploring attention mechanisms for fine-grained similarity, few-shot learning for custom categories without retraining, and more sophisticated fusion strategies for combining multiple feature types based on query characteristics.
+
+\section{Acknowledgments}
+
+\begin{itemize}
+    \item Prof. Bruce Maxwell for project specification and olympus dataset
+    \item CS 5330 course materials and lecture notes
+    \item OpenCV documentation for image processing functions and Haar Cascade face detection
+    \item PyTorch and torchvision for deep learning model implementations
+    \item Tkinter for GUI framework
+    \item ResNet-18: He et al. (2016), "Deep Residual Learning for Image Recognition"
+    \item Gabor filters: Daugman (1985), "Uncertainty relation for resolution in space, spatial frequency, and orientation optimized by two-dimensional visual cortical filters"
+    \item Histogram intersection metric: Swain \& Ballard (1991), "Color indexing"
+    \item Pre-computed ResNet-18 features provided as ResNet18\_olym.csv
+\end{itemize}
+
+\end{document}
