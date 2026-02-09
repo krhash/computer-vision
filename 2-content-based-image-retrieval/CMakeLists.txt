@@ -78,6 +78,7 @@ set(CBIR_CORE_SOURCES
     src/MultiRegionHistogramIntersection.cpp
     src/DNNFeature.cpp
     src/ProductMatcherFeature.cpp
+    src/FaceAwareFeature.cpp
     
     # Distance metrics
     src/SSDMetric.cpp
@@ -86,6 +87,7 @@ set(CBIR_CORE_SOURCES
     src/MultiRegionHistogramIntersection.cpp
     src/CosineDistance.cpp
     src/ProductMatcherDistance.cpp
+    src/FaceAwareDistance.cpp
     
     # Database and retrieval
     src/FeatureDatabase.cpp
@@ -111,6 +113,8 @@ set(CBIR_CORE_HEADERS
     include/CosineDistance.h
     include/ProductMatcherFeature.h
     include/ProductMatcherDistance.h
+    include/FaceAwareFeature.h
+    include/FaceAwareDistance.h
     include/FeatureDatabase.h
     include/ImageRetrieval.h
     include/Utils.h

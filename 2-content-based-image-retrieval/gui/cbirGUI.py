@@ -94,6 +94,11 @@ class CBIRGui:
                 'csv': os.path.join(self.features_dir, 'product_features.csv'),
                 'metric': 'productmatcher',
                 'description': 'Task 7: DNN(60%) + Center-Color(40%)'
+            },
+            'faceaware': {
+                'csv': os.path.join(self.features_dir, 'faceaware_features.csv'),
+                'metric': 'faceaware',
+                'description': 'Extension: Adaptive Face-Aware Features'
             }
         }
         

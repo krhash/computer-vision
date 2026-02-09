@@ -25,6 +25,7 @@
 #include "GaborTextureColorFeature.h"
 #include "DNNFeature.h"
 #include "ProductMatcherFeature.h"
+#include "FaceAwareFeature.h"
 #include <iostream>
 #include <string>
 
@@ -135,10 +136,16 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
             0.3,  // Center 50% of image
             8     // 8 bins per color channel
         );
+    } else if (type == "faceaware" || type == "adaptive") {
+        // Extension: Adaptive face-aware feature
+        return new cbir::FaceAwareFeature(
+            "../data/features/ResNet18_olym.csv",
+            "haarcascade_frontalface_alt2.xml"
+        );
     }
 
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
-    cerr << "Available: baseline, histogram, chromaticity, multihistogram, texturecolor, gabor, dnn, productmatcher" << endl;
+    cerr << "Available: baseline, histogram, chromaticity, multihistogram, texturecolor, gabor, dnn, productmatcher, faceaware" << endl;
     return nullptr;
 }
 
@@ -167,7 +174,7 @@ int main(int argc, char* argv[]) {
     string featureType = argv[2];
     string outputCSV = argv[3];
 
-    // ⭐ ADDED: Special case for pure DNN features
+    // Special case for pure DNN features
     if (Utils::toLower(featureType) == "dnn" || Utils::toLower(featureType) == "resnet") {
         cout << "========================================" << endl;
         cout << "DNN Features (Pre-computed)" << endl;
@@ -200,12 +207,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // ⭐ ADDED: Check if ProductMatcher for special handling
+    // Check for special feature types that need filename-based extraction
     ProductMatcherFeature* productMatcher = dynamic_cast<ProductMatcherFeature*>(extractor);
-    bool isProductMatcher = (productMatcher != nullptr);
+    FaceAwareFeature* faceAware = dynamic_cast<FaceAwareFeature*>(extractor);
     
-    if (isProductMatcher) {
+    if (productMatcher) {
         cout << "ProductMatcher mode: Combining DNN + Center-region color" << endl;
+        cout << endl;
+    }
+    
+    if (faceAware) {
+        cout << "FaceAware mode: Adaptive feature selection based on face detection" << endl;
         cout << endl;
     }
     
@@ -226,7 +238,8 @@ int main(int argc, char* argv[]) {
     cout << "Step 1: Extracting features from images..." << endl;
     cout << "-------------------------------------------" << endl;
     
-    map<string, cv::Mat> features;
+    // Create feature database
+    FeatureDatabase database;
     int successCount = 0;
     int failCount = 0;
     
@@ -241,14 +254,17 @@ int main(int argc, char* argv[]) {
         }
         
         // Extract features
-        cv::Mat featureVec;
         string filename = Utils::getFilename(imagePath);
+        cv::Mat featureVec;  // ⭐ Single feature vector (cv::Mat)
         
-        if (isProductMatcher) {
-            // handling for ProductMatcher
+        if (productMatcher) {
+            // Special: ProductMatcher needs filename
             featureVec = productMatcher->extractFeaturesWithFilename(image, filename);
+        } else if (faceAware) {
+            // Special: FaceAware needs filename
+            featureVec = faceAware->extractFeaturesWithFilename(image, filename);
         } else {
-            // Normal feature extraction
+            // Normal: Extract from image only
             featureVec = extractor->extractFeatures(image);
         }
         
@@ -258,8 +274,8 @@ int main(int argc, char* argv[]) {
             continue;
         }
         
-        // Store features
-        features[filename] = featureVec;
+        // Store features in database
+        database.addFeatures(filename, featureVec);
         successCount++;
         
         // Progress indicator
@@ -284,7 +300,7 @@ int main(int argc, char* argv[]) {
     cout << "Step 2: Saving features to CSV..." << endl;
     cout << "-------------------------------------------" << endl;
     
-    bool saveSuccess = Utils::writeFeaturesCSV(outputCSV, features, "filename");
+    bool saveSuccess = database.saveToCSV(outputCSV);
     
     if (!saveSuccess) {
         cerr << "Error: Failed to save features to CSV" << endl;

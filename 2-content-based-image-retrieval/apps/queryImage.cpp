@@ -31,6 +31,8 @@
 #include "CosineDistance.h"
 #include "ProductMatcherFeature.h"
 #include "ProductMatcherDistance.h"
+#include "FaceAwareFeature.h"
+#include "FaceAwareDistance.h"
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -137,10 +139,15 @@ cbir::FeatureExtractor* createFeatureExtractor(const string& featureType) {
         return new cbir::ProductMatcherFeature(
             "../data/features/ResNet18_olym.csv", 0.3, 8
         );
+    }  else if (type == "faceaware" || type == "adaptive") {
+        return new cbir::FaceAwareFeature(
+            "../data/features/ResNet18_olym.csv",
+            "haarcascade_frontalface_alt2.xml"
+        );
     }
     
     cerr << "Error: Unknown feature type '" << featureType << "'" << endl;
-    cerr << "Available: baseline, histogram, chromaticity, multihorizontal, texturecolor, gabor" << endl;
+    cerr << "Available: baseline, histogram, chromaticity, multihorizontal, texturecolor, gabor, dnn, productmatcher, faceaware" << endl;
     return nullptr;
 }
 
@@ -198,10 +205,12 @@ cbir::DistanceMetric* createDistanceMetric(const string& metricType) {
         return new cbir::CosineDistance();
     } else if (type == "productmatcher" || type == "product") {
         return new cbir::ProductMatcherDistance(0.6, 0.4);
+    } else if (type == "faceaware" || type == "adaptive") {
+        return new cbir::FaceAwareDistance();
     }
     
     cerr << "Error: Unknown metric type '" << metricType << "'" << endl;
-    cerr << "Available: ssd, histogram, multiregion, weighted, gabor, cosine" << endl;
+    cerr << "Available: ssd, histogram, multiregion, weighted, gabor, cosine, productmatcher, faceaware" << endl;
     return nullptr;
 }
 
@@ -337,6 +346,7 @@ int main(int argc, char* argv[]) {
     
     // Check for special feature types that need filename-based extraction
     ProductMatcherFeature* productMatcher = dynamic_cast<ProductMatcherFeature*>(extractor);
+    FaceAwareFeature* faceAware = dynamic_cast<FaceAwareFeature*>(extractor);
     DNNFeature* dnnExtractor = dynamic_cast<DNNFeature*>(extractor);
     
     if (productMatcher) {
@@ -363,6 +373,19 @@ int main(int argc, char* argv[]) {
         
         results = retrieval.queryWithFeatures(queryFeatures, topN);
         
+    } else if (faceAware) {
+        string queryFilename = Utils::getFilename(targetImage);
+        cv::Mat queryFeatures = faceAware->extractFeaturesWithFilename(queryImage, queryFilename);
+        
+        if (queryFeatures.empty()) {
+            cerr << "Error: Failed to extract FaceAware features" << endl;
+            return 1;
+        }
+        
+        cout << "Face detection: " << (faceAware->lastImageHadFaces() ? "YES" : "NO") 
+            << " (" << faceAware->getLastFaceCount() << " faces)" << endl;
+        
+        results = retrieval.queryWithFeatures(queryFeatures, topN);
     } else {
         // Normal query: Extract features from image
         results = retrieval.query(queryImage, topN);
