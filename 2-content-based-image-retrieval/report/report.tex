@@ -43,7 +43,7 @@ This video showcases the interactive GUI and all implemented feature matching me
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/baseline_matching.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/baseline_matching.png}
     \caption{Task 1: Baseline 7×7 Center Square Matching}
 \end{figure}
 
@@ -57,7 +57,7 @@ The baseline method successfully matches images with similar center regions but 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/histogram_matching.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/histogram_matching.png}
     \caption{Task 2: Whole Image RGB Histogram Matching}
 \end{figure}
 
@@ -71,7 +71,7 @@ Whole-image histograms capture global color distribution significantly better th
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/multi_histogram.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/multi_histogram.png}
     \caption{Task 3: Multi-Histogram with 2×2 Grid Split}
 \end{figure}
 
@@ -88,7 +88,7 @@ Multi-histogram approach significantly improves matching by incorporating spatia
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/texture_color.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/texture_color.png}
     \caption{Task 4: Combined Sobel Texture and Color Features}
 \end{figure}
 
@@ -101,6 +101,31 @@ Concatenated texture histogram (16 bins) with RGB color histogram (512 bins) for
 \subpara{Results:}
 Combined features better discriminate between objects with similar colors but different surface patterns. Texture information helps distinguish smooth objects from textured ones, and identifies patterns like fabric weaves or wood grain. Performance improves particularly for objects where texture is a defining characteristic.
 
+\subpara{Comparison on Target Image pic.0535.jpg:}
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/task4_compare_task2.png}
+        \caption{Task 2 Matches}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/task4_compare_task3.png}
+        \caption{Task 3 Matches}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/task4_compare_task4.png}
+        \caption{Task 4 Matches}
+    \end{subfigure}
+    \caption{Top 3 Matches for pic.0535.jpg - Comparison across Methods}
+\end{figure}
+
+The results show that adding texture and spatial constraints leads to completely different retrieval sets. Task 4, combining texture (Gabor) + color features, successfully finds images with repeating texture patterns (e.g., woven fabrics, brick walls). In contrast, Tasks 2 and 3 (histogram-based) primarily find images that have an overall similar color profile, often ignoring the structural content. This highlights the importance of texture analysis for distinguishing materials that share similar colors but have distinct surface qualities (e.g., a smooth red wall versus a brick red wall).
+
 \subsection{Task 5: Deep Network Embedding}
 
 \begin{figure}[H]
@@ -108,13 +133,13 @@ Combined features better discriminate between objects with similar colors but di
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{projects/report_2/images/deep_embeddings_1.png}
-        \caption{Query example 1}
+        \caption{Query: pic.0893.jpg}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{projects/report_2/images/deep_embeddings_2.png}
-        \caption{Query example 2}
+        \caption{Query: pic.0164.jpg}
     \end{subfigure}
     \caption{Task 5: ResNet-18 Deep Learning Features}
 \end{figure}
@@ -128,7 +153,32 @@ Applied cosine distance to measure similarity in embedding space: $d = 1 - \frac
 \subpara{Results:}
 Deep embeddings capture high-level semantic similarity far exceeding handcrafted features. Successfully matches objects of same category regardless of color, orientation, or texture variations. Handles complex scenes and identifies semantic relationships invisible to traditional methods. This demonstrates the power of learned representations over manually engineered features.
 
-\subsection{Task 6: Custom Design (ProductMatcher Feature)}
+\clearpage
+\subsection{Task 6: Compare DNN Embeddings and Classic Features}
+
+Comparisons were performed for images 1072, 948, and 734. The DNN embeddings consistently outperformed classic features in capturing semantic similarity. For instance, classic features often focused on background colors or specific textures, leading to false positives. In contrast, DNN embeddings improved retrieval by focusing on the object's semantic category, demonstrating robustness to viewpoint and lighting changes that confused histogram and texture-based methods.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/task6_948_classic.png}
+        \caption{Task 6.1: Classic Matches (948)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{projects/report_2/images/task6_948_dnn.png}
+        \caption{Task 6.1: DNN Matches (948)}
+    \end{subfigure}
+    \caption{Task 6: Classic vs DNN Comparison for Image 948}
+\end{figure}
+
+\subpara{Findings:}
+DNNs perform significantly better at object detection and finding semantically similar images. Whereas classical features find patterns like brick walls or dominant colors better. For example, in an image where the subject is a cup placed against a brick wall, classical features (like Gabor filters or texture histograms) tend to retrieve other images of brick walls, ignoring the cup. The CNN (DNN), however, identifies the semantic concept of a "cup" and correctly retrieves other images of cups, even if they have different backgrounds. This demonstrates the CNN's superior ability to distinguish foreground objects from background clutter compared to low-level feature extraction.
+
+\clearpage
+\subsection{Task 7: Custom Design (ProductMatcher Feature)}
 
 \subpara{Motivation:}
 Observation that whole-image histograms include backgrounds (walls, tables, etc.) which interfere with matching the actual objects. Product photography typically centers subjects, so focusing on the center region should improve object matching.
@@ -216,7 +266,7 @@ The 40\% color weight is crucial for matching specific products based on actual 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/gabor_features.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/gabor_features.png}
     \caption{Extension 1: Gabor Filter Bank Texture Analysis}
 \end{figure}
 
@@ -241,7 +291,7 @@ Gabor features excel at matching objects with regular texture patterns such as f
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/gui_overview.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/gui_overview.png}
     \caption{Extension 2: Interactive CBIR System GUI}
 \end{figure}
 
@@ -266,7 +316,7 @@ The GUI dramatically improves usability and enables rapid experimentation with d
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/faceaware_features.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/faceaware_features.png}
     \caption{Extension 3: Adaptive Face-Aware Feature Selection}
 \end{figure}
 
@@ -309,7 +359,7 @@ FaceAware features excel at matching photos with similar group compositions, clo
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{projects/report_2/images/faceaware_dnn.png}
+    \includegraphics[width=0.6\textwidth]{projects/report_2/images/faceaware_dnn.png}
     \caption{Pure DNN Query Results for Group Photo}
 \end{figure}
 
