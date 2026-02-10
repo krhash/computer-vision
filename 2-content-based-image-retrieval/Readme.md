@@ -175,14 +175,13 @@ The CBIR system is built on a modular, object-oriented architecture designed for
 
 ### Data Flow
 
-```mermaid
-graph LR
-    I[Input Image] --> FE[FeatureExtractor]
-    FE --> FV[Feature Vector]
-    FV --> IR[ImageRetrieval]
-    FD[FeatureDatabase] --> IR
-    DM[DistanceMetric] --> IR
-    IR --> R[Ranked Results]
+```
+[Input Image] --> [FeatureExtractor] --> [Feature Vector]
+                                              |
+                                              v
+[FeatureDatabase] -------------------> [ImageRetrieval] --> [Ranked Results]
+                                              ^
+[DistanceMetric] -----------------------------|
 ```
 
 ---
