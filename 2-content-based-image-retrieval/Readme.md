@@ -37,6 +37,10 @@ This project implements a comprehensive Content-Based Image Retrieval (CBIR) sys
   - One-click database building
   - Real-time feature selection
 
+### Video Demonstration
+
+[Watch the System Demo](https://drive.google.com/file/d/1MJaMr3cwn6BTef_czvUy1iM9TKtvz3N0/view?usp=sharing)
+
 ---
 
 ## Project Structure
