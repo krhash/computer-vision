@@ -141,13 +141,25 @@ bool EmbeddingClassifier::loadModel(const std::string& modelPath)
 bool EmbeddingClassifier::computeEmbedding(cv::Mat& frame,
                                             const RegionInfo& reg,
                                             std::vector<float>& emb,
-                                            bool debug)
+                                            bool debug,
+                                            cv::Mat* cropOut)
 {
     if (!modelLoaded_) return false;
 
-    // Step A-C: extract aligned ROI using Prof. Maxwell's utility
+    // Mask out everything except this region's bounding box
+    cv::Mat masked = cv::Mat::zeros(frame.size(), frame.type());
+    int pad = 20;
+    int x = std::max(0, reg.boundingBox.x - pad);
+    int y = std::max(0, reg.boundingBox.y - pad);
+    int w = std::min(frame.cols - x, reg.boundingBox.width  + 2 * pad);
+    int h = std::min(frame.rows - y, reg.boundingBox.height + 2 * pad);
+    if (w <= 0 || h <= 0) return false;
+    cv::Rect expandedBox(x, y, w, h);
+    frame(expandedBox).copyTo(masked(expandedBox));
+
+    // Extract aligned ROI
     cv::Mat embImage;
-    prepEmbeddingImage(frame, embImage,
+    prepEmbeddingImage(masked, embImage,
                        static_cast<int>(reg.centroid.x),
                        static_cast<int>(reg.centroid.y),
                        static_cast<float>(reg.angle),
@@ -157,11 +169,16 @@ bool EmbeddingClassifier::computeEmbedding(cv::Mat& frame,
 
     if (embImage.empty()) return false;
 
-    // Step D: get embedding from ResNet18
+    // Optionally return the crop for display
+    if (cropOut) {
+        cv::Mat display;
+        cv::resize(embImage, display, cv::Size(224, 224));
+        *cropOut = display.clone();
+    }
+
     cv::Mat embMat;
     getEmbedding(embImage, embMat, net_, debug ? 1 : 0);
 
-    // Convert cv::Mat row to std::vector<float>
     emb.assign(embMat.ptr<float>(0),
                embMat.ptr<float>(0) + static_cast<int>(embMat.total()));
     return true;
@@ -207,9 +224,17 @@ void EmbeddingClassifier::classify(const std::vector<float>& emb,
 void EmbeddingClassifier::classifyAll(cv::Mat& frame, AppState& state,
                                        const EmbeddingDB& db, float thresh)
 {
+    state.lastCroppedROI = cv::Mat();
+    state.croppedROIs.clear();
+
     for (auto& reg : state.regions) {
         std::vector<float> emb;
-        if (!computeEmbedding(frame, reg, emb)) continue;
+        cv::Mat            crop;
+
+        if (!computeEmbedding(frame, reg, emb, false, &crop)) continue;
+
+        state.croppedROIs.push_back(crop);
+        if (state.lastCroppedROI.empty()) state.lastCroppedROI = crop;
 
         std::string label;
         float       dist;
@@ -218,7 +243,6 @@ void EmbeddingClassifier::classifyAll(cv::Mat& frame, AppState& state,
         reg.label      = label;
         reg.embedding  = emb;
 
-        // Normalise confidence — SSD over 512 dims gives large numbers
         float normDist = dist / 512.f;
         reg.confidence = 1.f / (1.f + normDist);
     }

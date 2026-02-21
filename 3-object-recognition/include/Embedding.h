@@ -81,7 +81,8 @@ public:
      * @return        True on success.
      */
     bool computeEmbedding(cv::Mat& frame, const RegionInfo& reg,
-                          std::vector<float>& emb, bool debug = false);
+                          std::vector<float>& emb, bool debug = false,
+                          cv::Mat* cropOut = nullptr);
 
     /**
      * @brief Classify a region using sum-squared distance to DB entries.

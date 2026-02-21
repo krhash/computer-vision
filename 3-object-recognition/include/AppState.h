@@ -29,16 +29,17 @@ struct RegionInfo {
     cv::RotatedRect orientedBox;        ///< Oriented (rotated) bounding box
     cv::Point2f     centroid;           ///< Region centroid (cx, cy)
     double          angle       = 0.0;  ///< Primary axis angle (radians)
-    double          area        = 0.0;  ///< Pixel area
-    double          fillRatio   = 0.0;  ///< area / boundingBox.area()
-    double          bboxRatio   = 0.0;  ///< boundingBox height / width
+    double          area        = 0.0;  ///< Pixel area (normalised by image area)
+    double          fillRatio   = 0.0;  ///< area / orientedBBox.area
+    double          bboxRatio   = 0.0;  ///< long side / short side of oriented bbox
 
     // Axis projections — needed by Task 9 embedding (prepEmbeddingImage)
     float           minE1       = 0.f;  ///< Min projection along primary axis
     float           maxE1       = 0.f;  ///< Max projection along primary axis
     float           minE2       = 0.f;  ///< Min projection along secondary axis
     float           maxE2       = 0.f;  ///< Max projection along secondary axis
-    std::vector<double> huMoments;      ///< 7 Hu moment invariants
+
+    std::vector<double> huMoments;      ///< 7 Hu moment invariants (log-scaled)
 
     // Classifier output
     std::string     label       = "unknown";
@@ -58,16 +59,15 @@ struct PipelineParams {
 
     // --- Task 1: Threshold ---------------------------------------------------
     int     thresholdValue      = 127;  ///< Global threshold [0..255]
-    int     blurKernelSize      = 21;    ///< Pre-blur kernel size (must be odd)
+    int     blurKernelSize      = 21;   ///< Pre-blur kernel size (must be odd)
     bool    useAdaptive         = false;///< Adaptive vs global threshold
     bool    useKMeans           = false;///< ISODATA dynamic threshold
-    bool    useSatIntensity     = false;
+    bool    useSatIntensity     = false;///< Custom sat+intensity threshold (bonus)
 
     // --- Task 2: Morphology --------------------------------------------------
     int     morphKernelSize     = 5;    ///< Structuring element size
-    int     morphIterations     = 2;    ///< Number of morph iterations
-    /// 0=open, 1=close, 2=erode, 3=dilate
-    int     morphMode           = 0;
+    int     morphIterations     = 3;    ///< Number of morph iterations
+    int     morphMode           = 0;    ///< 0=open, 1=close, 2=erode, 3=dilate
 
     // --- Task 3: Connected Components ----------------------------------------
     int     minRegionArea       = 500;  ///< Ignore regions smaller than this
@@ -80,13 +80,11 @@ struct PipelineParams {
 
     // --- Task 6: Classifier --------------------------------------------------
     int     kNeighbors          = 1;
-    float   confidenceThresh    = 0.50f;
-    /// 0=scaled Euclidean, 1=cosine
-    int     distanceMetric      = 0;
+    float   confidenceThresh    = 0.60f;
+    int     distanceMetric      = 0;    ///< 0=scaled Euclidean, 1=cosine
 
     // --- Task 9: Embedding ---------------------------------------------------
-    /// 0=hand-features, 1=CNN ResNet18, 2=eigenspace PCA
-    int     embeddingMode       = 0;
+    int     embeddingMode       = 0;    ///< 0=hand-features, 1=CNN ResNet18, 2=eigenspace PCA
     int     roiSize             = 224;  ///< ROI resize before embedding
 };
 
@@ -119,7 +117,9 @@ struct AppState {
     float                           accuracy    = 0.f;
 
     // --- Embedding (Task 9) --------------------------------------------------
-    std::vector<float> lastEmbedding;
+    std::vector<float>   lastEmbedding;
+    cv::Mat              lastCroppedROI;  ///< Last crop sent to ResNet
+    std::vector<cv::Mat> croppedROIs;     ///< One crop per detected region
 
     // --- UI / diagnostics ----------------------------------------------------
     std::string statusMessage   = "Ready";

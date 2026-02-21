@@ -20,7 +20,6 @@
  *            n       enter train mode — prompts for label
  *            c       capture hand-feature sample → objects.csv
  *            C       capture CNN embedding sample → embeddings.csv
- *            9       toggle CNN embedding / hand feature mode
  *            x/X     confidence threshold -/+0.1
  *            d       toggle Euclidean / Cosine metric
  *            j/J     K neighbours -/+1
@@ -29,6 +28,8 @@
  *            1-3     toggle Threshold/Cleaned/Regions windows
  *            4-6     toggle Axes/BBox/FeatureText overlays
  *            7       toggle confusion matrix window
+ *            8       toggle embedding crop windows
+ *            9       toggle CNN embedding / hand feature mode
  *            q/ESC   quit
  *
  * @author  Krushna Sanjay Sharma
@@ -60,7 +61,6 @@ static std::string getArg(int argc, char* argv[], const std::string& key)
     return "";
 }
 
-// -----------------------------------------------------------------------------
 static void overlayParams(cv::Mat& frame, const PipelineParams& p,
                            const AppState& state)
 {
@@ -91,18 +91,16 @@ static void overlayParams(cv::Mat& frame, const PipelineParams& p,
     put(std::string("Mode:") + (state.embeddingMode_ ? "CNN" : "HF"), 5);
     put("FPS:"  + std::to_string(static_cast<int>(state.fps)), 6);
 
-    // Training status — bottom left
     if (state.mode == AppState::Mode::Train) {
-        std::string trainTxt = "TRAIN: " +
+        std::string txt = "TRAIN: " +
             (state.currentTrainLabel.empty() ? "press N"
                                              : state.currentTrainLabel) +
             " [" + std::to_string(state.samplesThisLabel) + "]";
-        cv::putText(frame, trainTxt, {10, frame.rows - 15},
+        cv::putText(frame, txt, {10, frame.rows - 15},
                     cv::FONT_HERSHEY_SIMPLEX, 0.5, {0, 200, 255}, 1);
     }
 }
 
-// -----------------------------------------------------------------------------
 static void printParams(const PipelineParams& p)
 {
     static const char* morphNames[] = {"Open","Close","Erode","Dilate"};
@@ -114,9 +112,6 @@ static void printParams(const PipelineParams& p)
               << "   " << std::flush;
 }
 
-// -----------------------------------------------------------------------------
-// Capture hand-feature training sample
-// -----------------------------------------------------------------------------
 static void captureTrainingSample(AppState& state, ObjectDB& db,
                                    Classifier& classifier)
 {
@@ -130,12 +125,10 @@ static void captureTrainingSample(AppState& state, ObjectDB& db,
     if (reg.huMoments.empty()) {
         std::cout << "\n[Train] Features not computed yet.\n"; return;
     }
-
     DBEntry entry = ObjectDB::entryFromRegion(reg, state.currentTrainLabel);
     db.append(entry);
     state.samplesThisLabel++;
     classifier.refit(db);
-
     std::cout << "\n[Train] Captured sample " << state.samplesThisLabel
               << " for '" << state.currentTrainLabel << "'\n";
 }
@@ -149,11 +142,10 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
                             EmbeddingDB& embDB,
                             EmbeddingClassifier& embClassifier,
                             bool& showThresh, bool& showCleaned,
-                            bool& showRegions, bool& showMatrix)
+                            bool& showRegions, bool& showMatrix,
+                            bool& showCrop)
 {
     switch (key) {
-
-        // --- Threshold -------------------------------------------------------
         case 't': params.thresholdValue = std::max(0,   params.thresholdValue - 5); break;
         case 'T': params.thresholdValue = std::min(255, params.thresholdValue + 5); break;
         case 'b': params.blurKernelSize = std::max(1,  params.blurKernelSize - 2);  break;
@@ -170,19 +162,14 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
             params.useSatIntensity = !params.useSatIntensity;
             if (params.useSatIntensity) { params.useAdaptive = false; params.useKMeans = false; }
             break;
-
-        // --- Morphology ------------------------------------------------------
         case 'm': params.morphKernelSize = std::max(1,  params.morphKernelSize - 2); break;
         case 'M': params.morphKernelSize = std::min(21, params.morphKernelSize + 2); break;
         case 'i': params.morphIterations = std::max(1,  params.morphIterations - 1); break;
         case 'I': params.morphIterations = std::min(10, params.morphIterations + 1); break;
         case 'o': params.morphMode = (params.morphMode + 1) % 4; break;
-
-        // --- Connected components --------------------------------------------
         case 'r': params.minRegionArea = std::max(100,   params.minRegionArea - 100); break;
         case 'R': params.minRegionArea = std::min(50000, params.minRegionArea + 100); break;
 
-        // --- Training — hand features ----------------------------------------
         case 'n': {
             std::cout << "\nEnter label name: ";
             std::string lbl;
@@ -199,8 +186,6 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
         case 'c':
             captureTrainingSample(state, db, classifier);
             break;
-
-        // --- Training — CNN embedding ----------------------------------------
         case 'C': {
             if (state.regions.empty()) {
                 std::cout << "\n[EmbTrain] No region detected.\n"; break;
@@ -222,12 +207,10 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
             }
             break;
         }
-
-        // --- Classifier ------------------------------------------------------
         case 'x': params.confidenceThresh = std::max(0.1f, params.confidenceThresh - 0.1f);
-            std::cout << "\nConfidence threshold: " << params.confidenceThresh << "\n"; break;
+            std::cout << "\nConf threshold: " << params.confidenceThresh << "\n"; break;
         case 'X': params.confidenceThresh = std::min(5.0f, params.confidenceThresh + 0.1f);
-            std::cout << "\nConfidence threshold: " << params.confidenceThresh << "\n"; break;
+            std::cout << "\nConf threshold: " << params.confidenceThresh << "\n"; break;
         case 'd': params.distanceMetric = (params.distanceMetric + 1) % 2;
             std::cout << "\nMetric: " << (params.distanceMetric == 0 ?
                 "Scaled Euclidean" : "Cosine") << "\n"; break;
@@ -235,26 +218,22 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
             std::cout << "\nK: " << params.kNeighbors << "\n"; break;
         case 'J': params.kNeighbors = std::min(9, params.kNeighbors + 1);
             std::cout << "\nK: " << params.kNeighbors << "\n"; break;
-
-        // --- Embedding mode toggle -------------------------------------------
         case '9':
             state.embeddingMode_ = !state.embeddingMode_;
             std::cout << "\n[Mode] "
                       << (state.embeddingMode_ ? "CNN Embedding" : "Hand Features")
                       << "\n";
             break;
-
-        // --- Evaluation ------------------------------------------------------
         case 'e': {
             if (state.regions.empty()) {
                 std::cout << "\n[Eval] No region detected.\n"; break;
             }
-            std::cout << "\nEnter TRUE label for current object: ";
+            std::cout << "\nEnter TRUE label: ";
             std::string trueLabel;
             std::cin >> trueLabel;
             const RegionInfo& reg = state.regions[0];
             evaluator.record(trueLabel, reg.label, reg.confidence);
-            std::cout << "[Eval] Recorded: true=" << trueLabel
+            std::cout << "[Eval] true=" << trueLabel
                       << " predicted=" << reg.label
                       << " (" << evaluator.count() << " total)\n";
             break;
@@ -264,18 +243,18 @@ static bool handleKeyboard(int key, PipelineParams& params, AppState& state,
             evaluator.saveMatrix();
             break;
 
-        // --- Window toggles --------------------------------------------------
+        // Window toggles — flip bool, main loop handles show/hide
         case '1': showThresh  = !showThresh;  break;
         case '2': showCleaned = !showCleaned; break;
         case '3': showRegions = !showRegions; break;
         case '4': params.showAxes         = !params.showAxes;         break;
         case '5': params.showOrientedBBox = !params.showOrientedBBox; break;
         case '6': params.showFeatureText  = !params.showFeatureText;  break;
-        case '7': showMatrix  = !showMatrix;  break;
+        case '7': showMatrix = !showMatrix; break;
+        case '8': showCrop   = !showCrop;
+            std::cout << "\n[Crop] " << (showCrop ? "ON" : "OFF") << "\n"; break;
 
-        // --- Quit ------------------------------------------------------------
         case 'q': case 27: state.running = false; return false;
-
         default: break;
     }
     printParams(params);
@@ -302,7 +281,6 @@ int main(int argc, char* argv[])
     else if (modeStr == "embed") state.mode = AppState::Mode::Embed;
     else                         state.mode = AppState::Mode::Live;
 
-    // --- Load object DB ------------------------------------------------------
     ObjectDB db(dbPath);
     auto counts = db.labelCounts();
     if (!counts.empty()) {
@@ -312,14 +290,12 @@ int main(int argc, char* argv[])
         std::cout << "\n";
     }
 
-    // --- Initialise pipeline components --------------------------------------
     Classifier          classifier(db, params);
     Evaluator           evaluator;
     EmbeddingDB         embDB("data/db/embeddings.csv");
     EmbeddingClassifier embClassifier;
     embClassifier.loadModel("data/models/resnet18-v2-7.onnx");
 
-    // --- Open capture source -------------------------------------------------
     cv::VideoCapture cap;
     bool imageMode = false;
 
@@ -340,18 +316,33 @@ int main(int argc, char* argv[])
         }
     }
 
-    // --- Windows -------------------------------------------------------------
+    // Window names
     const std::string winMain    = "ObjectRecognition";
     const std::string winThresh  = "Threshold";
     const std::string winCleaned = "Cleaned";
     const std::string winRegions = "Regions";
     const std::string winMatrix  = "Confusion Matrix";
 
+    // Toggle state
     bool showThresh  = true;
     bool showCleaned = true;
     bool showRegions = true;
     bool showMatrix  = false;
+    bool showCrop    = false;
 
+    // Crop windows — fixed names, max 5
+    const int maxCropWins = 5;
+    std::vector<std::string> cropWins;
+    for (int i = 0; i < maxCropWins; i++)
+        cropWins.push_back("Crop[" + std::to_string(i) + "]");
+    bool prevShowCrop = false;
+
+    // Previous toggle states to detect changes
+    bool prevThresh  = true;
+    bool prevCleaned = true;
+    bool prevRegions = true;
+
+    // Create all windows upfront
     cv::namedWindow(winMain,    cv::WINDOW_AUTOSIZE);
     cv::namedWindow(winThresh,  cv::WINDOW_AUTOSIZE);
     cv::namedWindow(winCleaned, cv::WINDOW_AUTOSIZE);
@@ -365,13 +356,12 @@ int main(int argc, char* argv[])
     // =========================================================================
     while (state.running) {
 
-        // --- Grab frame ------------------------------------------------------
         if (!imageMode) {
             cap >> state.frameOriginal;
             if (state.frameOriginal.empty()) break;
         }
 
-        // --- Pipeline --------------------------------------------------------
+        // Pipeline
         applyThreshold(state.frameOriginal,     state.frameThresholded, params);
         applyMorphology(state.frameThresholded, state.frameCleaned,     params);
 
@@ -379,63 +369,93 @@ int main(int argc, char* argv[])
         findRegions(state.frameCleaned, state, params, labelMap);
         computeAllFeatures(labelMap, state);
 
-        // --- Classify --------------------------------------------------------
         if (!state.embeddingMode_)
             classifier.classifyAll(state, params);
         else if (embClassifier.isReady() && !embDB.empty())
             embClassifier.classifyAll(state.frameOriginal, state, embDB,
                                       params.confidenceThresh * 10000.f);
 
-        // --- Display ---------------------------------------------------------
+        // Main window — always shown
         state.frameDisplay = state.frameOriginal.clone();
         drawFeatures(state.frameDisplay, state, params);
         overlayParams(state.frameDisplay, params, state);
         cv::imshow(winMain, state.frameDisplay);
 
-        // Safe window destroy helper
-        auto safeDestroy = [](const std::string& name) {
-            if (cv::getWindowProperty(name, cv::WND_PROP_VISIBLE) >= 1)
-                cv::destroyWindow(name);
-        };
+        // Secondary windows — destroy on toggle off, recreate on toggle on
+        if (showThresh && !state.frameThresholded.empty()) {
+            if (!prevThresh) cv::namedWindow(winThresh, cv::WINDOW_AUTOSIZE);
+            cv::imshow(winThresh, state.frameThresholded);
+        } else if (!showThresh && prevThresh)
+            try { cv::destroyWindow(winThresh); } catch(...) {}
 
-        // Sync flags if user closes window with X button
-        if (showThresh  && cv::getWindowProperty(winThresh,  cv::WND_PROP_VISIBLE) < 1) showThresh  = false;
-        if (showCleaned && cv::getWindowProperty(winCleaned, cv::WND_PROP_VISIBLE) < 1) showCleaned = false;
-        if (showRegions && cv::getWindowProperty(winRegions, cv::WND_PROP_VISIBLE) < 1) showRegions = false;
+        if (showCleaned && !state.frameCleaned.empty()) {
+            if (!prevCleaned) cv::namedWindow(winCleaned, cv::WINDOW_AUTOSIZE);
+            cv::imshow(winCleaned, state.frameCleaned);
+        } else if (!showCleaned && prevCleaned)
+            try { cv::destroyWindow(winCleaned); } catch(...) {}
 
-        if (showThresh)  cv::imshow(winThresh,  state.frameThresholded);
-        else             safeDestroy(winThresh);
-
-        if (showCleaned) cv::imshow(winCleaned, state.frameCleaned);
-        else             safeDestroy(winCleaned);
-
-        if (showRegions && !state.frameRegions.empty())
+        if (showRegions && !state.frameRegions.empty()) {
+            if (!prevRegions) cv::namedWindow(winRegions, cv::WINDOW_AUTOSIZE);
             cv::imshow(winRegions, state.frameRegions);
-        else
-            safeDestroy(winRegions);
+        } else if (!showRegions && prevRegions)
+            try { cv::destroyWindow(winRegions); } catch(...) {}
+
+        prevThresh  = showThresh;
+        prevCleaned = showCleaned;
+        prevRegions = showRegions;
 
         if (showMatrix) {
             cv::Mat matImg;
             evaluator.drawMatrix(matImg);
+            cv::namedWindow(winMatrix, cv::WINDOW_AUTOSIZE);
             cv::imshow(winMatrix, matImg);
         } else {
-            if (cv::getWindowProperty(winMatrix, cv::WND_PROP_VISIBLE) >= 1)
-                cv::destroyWindow(winMatrix);
+            try { cv::destroyWindow(winMatrix); } catch (...) {}
         }
 
-        // --- FPS -------------------------------------------------------------
+        // Crop windows — create/destroy only on toggle change
+        if (showCrop && !prevShowCrop) {
+            int n = std::min(static_cast<int>(state.croppedROIs.size()), maxCropWins);
+            n = std::max(n, 1);
+            for (int i = 0; i < n; i++)
+                cv::namedWindow(cropWins[i], cv::WINDOW_AUTOSIZE);
+        }
+        if (!showCrop && prevShowCrop) {
+            for (const auto& wn : cropWins)
+                try { cv::destroyWindow(wn); } catch (...) {}
+        }
+        prevShowCrop = showCrop;
+
+        if (showCrop) {
+            int nCrops = std::min(static_cast<int>(state.croppedROIs.size()), maxCropWins);
+            for (int i = 0; i < nCrops; i++) {
+                if (state.croppedROIs[i].empty()) continue;
+                cv::Mat disp = state.croppedROIs[i].clone();
+                std::string lbl = i < static_cast<int>(state.regions.size())
+                                  ? state.regions[i].label : "?";
+                cv::putText(disp, lbl, {5,20},
+                            cv::FONT_HERSHEY_SIMPLEX, 0.6, {0,255,0}, 2);
+                cv::imshow(cropWins[i], disp);
+            }
+        }
+
+        // FPS
         auto  tNow = std::chrono::steady_clock::now();
         float dt   = std::chrono::duration<float>(tNow - tPrev).count();
         state.fps  = dt > 0.f ? 1.f / dt : 0.f;
         tPrev      = tNow;
 
-        // --- Keyboard --------------------------------------------------------
+        // Keyboard
         int key = cv::waitKey(30) & 0xFF;
         if (key != 255)
             handleKeyboard(key, params, state, db, classifier, evaluator,
                            embDB, embClassifier,
-                           showThresh, showCleaned, showRegions, showMatrix);
+                           showThresh, showCleaned, showRegions, showMatrix,
+                           showCrop);
     }
+
+    for (const auto& wn : cropWins)
+        try { cv::destroyWindow(wn); } catch (...) {}
 
     std::cout << "\nExiting. DB has " << db.size() << " entries.\n";
     cv::destroyAllWindows();
