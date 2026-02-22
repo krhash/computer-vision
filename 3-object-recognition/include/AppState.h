@@ -126,4 +126,5 @@ struct AppState {
     float       fps             = 0.f;
     bool        running         = true;
     bool        embeddingMode_  = false; ///< Task 9: use CNN embedding classifier
+    bool        showOverlay     = true;  ///< Show config overlay text on main window
 };

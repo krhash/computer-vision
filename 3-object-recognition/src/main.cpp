@@ -50,6 +50,7 @@
 #include "Classifier.h"
 #include "Evaluator.h"
 #include "Embedding.h"
+#include "GUI.h"
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -88,7 +89,7 @@ static void overlayParams(cv::Mat& frame, const PipelineParams& p,
         " i=" + std::to_string(p.morphIterations), 2);
     put("MinA:" + std::to_string(p.minRegionArea), 3);
     put("Rgns:" + std::to_string(state.regions.size()), 4);
-    put(std::string("Mode:") + (state.embeddingMode_ ? "CNN" : "HF"), 5);
+    put(std::string("Mode:") + (state.embeddingMode_ ? "CNN" : "Shape Feature"), 5);
     put("FPS:"  + std::to_string(static_cast<int>(state.fps)), 6);
 
     if (state.mode == AppState::Mode::Train) {
@@ -296,6 +297,10 @@ int main(int argc, char* argv[])
     EmbeddingClassifier embClassifier;
     embClassifier.loadModel("data/models/resnet18-v2-7.onnx");
 
+    // --- Initialise GUI ------------------------------------------------------
+    GUI gui;
+    bool guiEnabled = gui.init(480, 720, "ObjectRecognition — Controls");
+
     cv::VideoCapture cap;
     bool imageMode = false;
 
@@ -378,7 +383,8 @@ int main(int argc, char* argv[])
         // Main window — always shown
         state.frameDisplay = state.frameOriginal.clone();
         drawFeatures(state.frameDisplay, state, params);
-        overlayParams(state.frameDisplay, params, state);
+        if (state.showOverlay)
+            overlayParams(state.frameDisplay, params, state);
         cv::imshow(winMain, state.frameDisplay);
 
         // Secondary windows — destroy on toggle off, recreate on toggle on
@@ -439,7 +445,32 @@ int main(int argc, char* argv[])
             }
         }
 
-        // FPS
+        // --- GUI render ------------------------------------------------------
+        if (guiEnabled) {
+            gui.pollEvents();
+            gui.render(params, state, db, classifier, evaluator, embDB,
+                       showThresh, showCleaned, showRegions, showMatrix,
+                       showCrop);
+            // Check if GUI closed
+            if (!gui.isOpen()) state.running = false;
+        }
+
+        // --- Handle embedding capture request from GUI -----------------------
+        if (state.captureRequested) {
+            state.captureRequested = false;
+            if (!state.regions.empty() && !state.currentTrainLabel.empty()
+                && embClassifier.isReady()) {
+                std::vector<float> emb;
+                if (embClassifier.computeEmbedding(
+                        const_cast<cv::Mat&>(state.frameOriginal),
+                        state.regions[0], emb)) {
+                    EmbeddingEntry e{state.currentTrainLabel, emb};
+                    embDB.append(e);
+                    std::cout << "\n[EmbTrain] Captured embedding for '"
+                              << state.currentTrainLabel << "'\n";
+                }
+            }
+        }
         auto  tNow = std::chrono::steady_clock::now();
         float dt   = std::chrono::duration<float>(tNow - tPrev).count();
         state.fps  = dt > 0.f ? 1.f / dt : 0.f;
@@ -457,6 +488,7 @@ int main(int argc, char* argv[])
     for (const auto& wn : cropWins)
         try { cv::destroyWindow(wn); } catch (...) {}
 
+    if (guiEnabled) gui.shutdown();
     std::cout << "\nExiting. DB has " << db.size() << " entries.\n";
     cv::destroyAllWindows();
     return 0;

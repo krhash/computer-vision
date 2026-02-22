@@ -34,77 +34,59 @@ endif()
 # -----------------------------------------------------------------------------
 find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
-message(STATUS "OpenCV libs:    ${OpenCV_LIBS}")
 
 # -----------------------------------------------------------------------------
-# ONNX Runtime (optional — Task 9 CNN embedding)
-#
-# Expected layout at ONNXRUNTIME_ROOT:
-#   include/onnxruntime_cxx_api.h
-#   lib/onnxruntime.lib
-#   lib/onnxruntime.dll
+# ONNX Runtime (optional)
 # -----------------------------------------------------------------------------
 set(ONNXRUNTIME_ROOT "C:/lib/onnxruntime" CACHE PATH "ONNX Runtime root dir")
 find_package(ONNXRuntime QUIET)
-
 if(ONNXRuntime_FOUND)
-    message(STATUS "ONNX Runtime found")
-    message(STATUS "  Include : ${ONNXRuntime_INCLUDE_DIRS}")
-    message(STATUS "  Libs    : ${ONNXRuntime_LIBRARIES}")
+    message(STATUS "ONNX Runtime: ${ONNXRuntime_LIBRARIES}")
     add_definitions(-DUSE_ONNXRUNTIME)
 else()
-    message(WARNING "ONNX Runtime not found — CNN embedding (Task 9) disabled.")
+    message(WARNING "ONNX Runtime not found — CNN embedding disabled.")
 endif()
 
 # -----------------------------------------------------------------------------
-# GLFW3 (optional — window + OpenGL context backend for Dear ImGui)
-#
-# GLFW creates the OS window and OpenGL context that ImGui renders into.
-# Without it the GUI phase is skipped; all pipeline logic still works.
-#
-# Expected layout at GLFW_ROOT:
-#   include/GLFW/glfw3.h
-#   lib-vc2022/glfw3.lib          (MSVC pre-built)
-#   -- OR installed via vcpkg --
-#
-# Install options:
-#   vcpkg : vcpkg install glfw3:x64-windows
-#   Manual: https://www.glfw.org/download  → extract to C:\lib\glfw
+# GLFW (manual install at C:/lib/glfw)
+# Explicitly locate lib and header — do not rely on find_package
 # -----------------------------------------------------------------------------
-set(GLFW_ROOT "C:/lib/glfw" CACHE PATH "GLFW root dir (manual install)")
+set(GLFW_ROOT "C:/lib/glfw" CACHE PATH "GLFW root dir")
 
-# Let CMake find glfw3 via vcpkg toolchain or manual hint
-find_package(glfw3 QUIET HINTS "${GLFW_ROOT}/lib/cmake")
+find_library(GLFW_LIB
+    NAMES glfw3 glfw
+    PATHS
+        "${GLFW_ROOT}/lib-vc2022"
+        "${GLFW_ROOT}/lib-vc2019"
+        "${GLFW_ROOT}/lib"
+    NO_DEFAULT_PATH
+)
 
-if(NOT glfw3_FOUND)
-    # Fallback: locate manually from GLFW_ROOT
-    find_library(GLFW_LIB
-        NAMES glfw3 glfw
-        PATHS "${GLFW_ROOT}/lib-vc2022"
-              "${GLFW_ROOT}/lib-vc2019"
-              "${GLFW_ROOT}/lib"
-    )
-    find_path(GLFW_INCLUDE
-        NAMES GLFW/glfw3.h
-        PATHS "${GLFW_ROOT}/include"
-    )
-    if(GLFW_LIB AND GLFW_INCLUDE)
-        # Wrap into an imported target so the rest of CMake stays uniform
-        add_library(glfw3 STATIC IMPORTED)
-        set_target_properties(glfw3 PROPERTIES
-            IMPORTED_LOCATION             "${GLFW_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE}"
-        )
-        set(glfw3_FOUND TRUE)
-        message(STATUS "GLFW found (manual): ${GLFW_LIB}")
-    endif()
-endif()
+find_path(GLFW_INCLUDE_DIR
+    NAMES GLFW/glfw3.h
+    PATHS "${GLFW_ROOT}/include"
+    NO_DEFAULT_PATH
+)
 
-if(glfw3_FOUND)
-    message(STATUS "GLFW ready — ImGui GUI will be compiled.")
-    add_definitions(-DUSE_IMGUI)
+if(GLFW_LIB AND GLFW_INCLUDE_DIR)
+    message(STATUS "GLFW lib    : ${GLFW_LIB}")
+    message(STATUS "GLFW include: ${GLFW_INCLUDE_DIR}")
+    set(GLFW_FOUND TRUE)
 else()
-    message(STATUS "GLFW not found — ImGui GUI skipped (pipeline still works).")
+    message(STATUS "GLFW not found at ${GLFW_ROOT} — GUI disabled.")
+    set(GLFW_FOUND FALSE)
+endif()
+
+# -----------------------------------------------------------------------------
+# ImGui detection
+# -----------------------------------------------------------------------------
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/third_party/imgui")
+if(GLFW_FOUND AND EXISTS "${IMGUI_DIR}/imgui.h")
+    set(IMGUI_FOUND TRUE)
+    message(STATUS "ImGui found : ${IMGUI_DIR}")
+else()
+    set(IMGUI_FOUND FALSE)
+    message(STATUS "ImGui not found — GUI disabled.")
 endif()
 
 # -----------------------------------------------------------------------------
@@ -112,31 +94,29 @@ endif()
 # -----------------------------------------------------------------------------
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/include)
-
 if(ONNXRuntime_FOUND)
     include_directories(${ONNXRuntime_INCLUDE_DIRS})
 endif()
 
 # -----------------------------------------------------------------------------
 # Pipeline sources
-# Add each task's .cpp here as it is implemented.
 # -----------------------------------------------------------------------------
 set(PIPELINE_SOURCES
     src/Threshold.cpp
-    src/Morphology.cpp            # Task 2
-    src/ConnectedComponents.cpp   # Task 3
-    src/RegionFeatures.cpp        # Task 4
-    src/ObjectDB.cpp              # Task 5
-    src/Classifier.cpp            # Task 6
-    src/Evaluator.cpp             # Task 7
-    src/utilities.cpp             # Task 9 (Modified from Prof. Bruce Maxwell)
-    src/Embedding.cpp             # Task 9
-    # src/RegionFeatures.cpp      # Task 4
-    # src/ObjectDB.cpp            # Task 5
-    # src/Classifier.cpp          # Task 6
-    # src/Evaluator.cpp           # Task 7
-    # src/Embedding.cpp           # Task 9
+    src/Morphology.cpp
+    src/ConnectedComponents.cpp
+    src/RegionFeatures.cpp
+    src/ObjectDB.cpp
+    src/Classifier.cpp
+    src/Evaluator.cpp
+    src/utilities.cpp
+    src/Embedding.cpp
 )
+
+if(IMGUI_FOUND)
+    list(APPEND PIPELINE_SOURCES src/GUI.cpp)
+    add_definitions(-DUSE_IMGUI)
+endif()
 
 add_library(pipeline STATIC ${PIPELINE_SOURCES})
 target_link_libraries(pipeline PUBLIC ${OpenCV_LIBS})
@@ -147,55 +127,46 @@ if(ONNXRuntime_FOUND)
 endif()
 
 # -----------------------------------------------------------------------------
-# Main executable
+# ImGui library (pure ImGui sources — no project headers)
 # -----------------------------------------------------------------------------
-add_executable(objectRecognition src/main.cpp)
-target_link_libraries(objectRecognition PRIVATE pipeline ${OpenCV_LIBS})
-
-# -----------------------------------------------------------------------------
-# Dear ImGui — compiled only when GLFW + imgui sources are present
-#
-# ImGui source files live in third_party/imgui/ (git clone ocornut/imgui).
-# Backends used: GLFW + OpenGL3.
-# imgui_stdlib adds std::string support for text input widgets.
-# -----------------------------------------------------------------------------
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/third_party/imgui")
-
-if(glfw3_FOUND AND EXISTS "${IMGUI_DIR}/imgui.h")
+if(IMGUI_FOUND)
     set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui.cpp
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp   # GLFW event handling
-        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp # OpenGL3 renderer
-        ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp       # std::string InputText
-        # src/GUI.cpp                                # uncomment in GUI phase
+        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+        ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
     )
 
     add_library(imgui_lib STATIC ${IMGUI_SOURCES})
-
     target_include_directories(imgui_lib PUBLIC
-        ${IMGUI_DIR}                  # imgui.h
-        ${IMGUI_DIR}/backends         # imgui_impl_*.h
-        ${IMGUI_DIR}/misc/cpp         # imgui_stdlib.h
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+        ${IMGUI_DIR}/misc/cpp
+        ${GLFW_INCLUDE_DIR}
     )
+    target_link_libraries(imgui_lib PUBLIC ${GLFW_LIB} opengl32)
 
-    # Link GLFW + OpenGL system libraries
-    if(WIN32)
-        target_link_libraries(imgui_lib PUBLIC glfw3 opengl32)
-    else()
-        find_package(OpenGL REQUIRED)
-        target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
-    endif()
+    # Give pipeline access to ImGui headers (needed by GUI.cpp)
+    target_include_directories(pipeline PUBLIC
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+        ${IMGUI_DIR}/misc/cpp
+        ${GLFW_INCLUDE_DIR}
+    )
+    target_link_libraries(pipeline PUBLIC imgui_lib)
+    message(STATUS "ImGui + GLFW compiled and linked.")
+endif()
 
-    target_link_libraries(objectRecognition PRIVATE imgui_lib)
-    message(STATUS "ImGui compiled and linked.")
-else()
-    if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
-        message(STATUS "ImGui sources not found at ${IMGUI_DIR} — skipping.")
-        message(STATUS "  Run: git clone https://github.com/ocornut/imgui ${IMGUI_DIR}")
-    endif()
+# -----------------------------------------------------------------------------
+# Main executable
+# -----------------------------------------------------------------------------
+add_executable(objectRecognition src/main.cpp)
+target_link_libraries(objectRecognition PRIVATE pipeline ${OpenCV_LIBS})
+if(ONNXRuntime_FOUND)
+    target_link_libraries(objectRecognition PRIVATE ${ONNXRuntime_LIBRARIES})
 endif()
 
 # -----------------------------------------------------------------------------
@@ -206,7 +177,6 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/data")
          DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/")
 endif()
 
-# Post-build: copy ONNX model (copy_if_different preserves existing data/db files)
 if(EXISTS "${CMAKE_SOURCE_DIR}/data/models/resnet18-v2-7.onnx")
     add_custom_command(TARGET objectRecognition POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -216,7 +186,6 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/data/models/resnet18-v2-7.onnx")
     )
 endif()
 
-# Post-build: copy ONNX Runtime DLLs (Windows)
 if(WIN32 AND ONNXRuntime_FOUND)
     file(GLOB ONNX_DLLS "${ONNXRUNTIME_ROOT}/lib/*.dll")
     foreach(DLL ${ONNX_DLLS})
@@ -228,27 +197,15 @@ if(WIN32 AND ONNXRuntime_FOUND)
     endforeach()
 endif()
 
-# Post-build: copy GLFW DLL if present (dynamic build)
-if(WIN32 AND glfw3_FOUND)
-    file(GLOB GLFW_DLLS "${GLFW_ROOT}/lib-vc2022/*.dll"
-                        "${GLFW_ROOT}/lib/*.dll")
-    foreach(DLL ${GLFW_DLLS})
-        add_custom_command(TARGET objectRecognition POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${DLL}" "$<TARGET_FILE_DIR:objectRecognition>"
-            COMMENT "Copying GLFW DLL: ${DLL}"
-        )
-    endforeach()
-endif()
-
 # -----------------------------------------------------------------------------
-# Build summary
+# Summary
 # -----------------------------------------------------------------------------
 message(STATUS "")
 message(STATUS "=== ObjectRecognition Build Config ===")
 message(STATUS "  C++ standard : ${CMAKE_CXX_STANDARD}")
 message(STATUS "  OpenCV       : ${OpenCV_VERSION}")
 message(STATUS "  ONNX Runtime : ${ONNXRuntime_FOUND}")
-message(STATUS "  GLFW / ImGui : ${glfw3_FOUND}")
+message(STATUS "  GLFW found   : ${GLFW_FOUND}")
+message(STATUS "  ImGui found  : ${IMGUI_FOUND}")
 message(STATUS "  Output dir   : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message(STATUS "======================================")
