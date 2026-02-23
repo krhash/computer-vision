@@ -36,16 +36,42 @@ struct EmbeddingEntry {
 // =============================================================================
 class EmbeddingDB {
 public:
+    /**
+     * @brief Construct and optionally auto-load the embedding database.
+     * @param filepath  Path to the CSV file (created on first save if absent).
+     */
     explicit EmbeddingDB(const std::string& filepath =
                          "data/db/embeddings.csv");
 
+    /**
+     * @brief Load all entries from the CSV file, replacing in-memory state.
+     * @return True on success, false if the file could not be opened.
+     */
     bool load();
+
+    /**
+     * @brief Write all in-memory entries to the CSV file.
+     * @return True on success, false if the file could not be written.
+     */
     bool save() const;
+
+    /**
+     * @brief Append a single entry to the CSV file and to the in-memory list.
+     * @param entry  Labeled embedding to store.
+     * @return       True on success.
+     */
     bool append(const EmbeddingEntry& entry);
+
+    /** Clear all in-memory entries (does not modify the CSV file). */
     void clear();
 
+    /** Return a read-only reference to all stored entries. */
     const std::vector<EmbeddingEntry>& entries() const { return entries_; }
+
+    /** Return true if the database contains no entries. */
     bool  empty() const { return entries_.empty(); }
+
+    /** Return the total number of stored entries. */
     int   size()  const { return static_cast<int>(entries_.size()); }
 
 private:

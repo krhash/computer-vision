@@ -44,19 +44,19 @@ public:
 
     /**
      * @brief Render one frame of ImGui panels.
-     *        Call once per main loop iteration after pipeline runs.
+     *        Call once per main loop iteration after the pipeline runs.
      *
      * @param params      Pipeline parameters — sliders write here directly.
-     * @param state       App state — training status, regions read here.
-     * @param db          Object DB — DB manager reads/writes here.
-     * @param classifier  Classifier — refit called after DB changes.
-     * @param evaluator   Evaluator — confusion matrix data read here.
-     * @param embDB       Embedding DB — sample counts shown.
-     * @param showThresh  Toggle refs — checkboxes write here.
-     * @param showCleaned
-     * @param showRegions
-     * @param showMatrix
-     * @param showCrop
+     * @param state       App state — training status and regions are read here.
+     * @param db          Shape feature object DB — managed by the DB panel.
+     * @param classifier  K-NN classifier — refitted when the DB changes.
+     * @param evaluator   Evaluator — confusion matrix data read for display.
+     * @param embDB       CNN embedding DB — sample counts shown in DB panel.
+     * @param showThresh  Toggle for the Threshold debug window.
+     * @param showCleaned Toggle for the post-morphology Cleaned debug window.
+     * @param showRegions Toggle for the color-coded Regions debug window.
+     * @param showMatrix  Toggle for the Confusion Matrix OpenCV window.
+     * @param showCrop    Toggle for the per-region aligned ROI crop windows.
      */
     void render(PipelineParams& params, AppState& state,
                 ObjectDB& db, Classifier& classifier,
@@ -77,19 +77,24 @@ public:
 private:
     GLFWwindow* window_    = nullptr;
     bool        initDone_  = false;
-    char        labelBuf_[128] = {};
+    char        labelBuf_[128]     = {};
+    char        autoLearnBuf_[128] = {};
 
+    /** Render threshold, morphology, region, and classifier controls. */
     void renderPipelinePanel(PipelineParams& params,
                               AppState& state,
                               bool& showThresh, bool& showCleaned,
                               bool& showRegions, bool& showCrop);
 
+    /** Render label input and sample capture buttons. */
     void renderTrainingPanel(AppState& state,
                               ObjectDB& db, Classifier& classifier,
                               EmbeddingDB& embDB);
 
+    /** Render the collapsible DB manager showing entry counts and delete buttons. */
     void renderDBPanel(ObjectDB& db, EmbeddingDB& embDB,
                        Classifier& classifier);
 
+    /** Render the collapsible inline confusion matrix table. */
     void renderConfusionMatrix(Evaluator& evaluator);
 };

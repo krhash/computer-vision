@@ -2,13 +2,12 @@
  * @file    AppState.h
  * @brief   Shared pipeline parameters and application state structs.
  *
- *          PipelineParams — all tunable values consumed by task functions.
+ *          PipelineParams — all tunable values consumed by pipeline functions.
  *          AppState       — pipeline outputs and display-ready data.
  *
- *          Design goal: every task function takes (params) in and writes
- *          to (state) out.  Keyboard controls modify params now; ImGui
- *          sliders will modify the same struct in the GUI phase with zero
- *          changes to task code.
+ *          Design goal: every pipeline function takes (params) in and writes
+ *          to (state) out.  Both keyboard shortcuts and ImGui sliders write
+ *          to the same struct, keeping pipeline code unchanged.
  *
  * @author  Krushna Sanjay Sharma
  * @date    February 2026
@@ -33,7 +32,7 @@ struct RegionInfo {
     double          fillRatio   = 0.0;  ///< area / orientedBBox.area
     double          bboxRatio   = 0.0;  ///< long side / short side of oriented bbox
 
-    // Axis projections — needed by Task 9 embedding (prepEmbeddingImage)
+    // Axis projections — used by the embedding pipeline (prepEmbeddingImage)
     float           minE1       = 0.f;  ///< Min projection along primary axis
     float           maxE1       = 0.f;  ///< Max projection along primary axis
     float           minE2       = 0.f;  ///< Min projection along secondary axis
@@ -42,10 +41,11 @@ struct RegionInfo {
     std::vector<double> huMoments;      ///< 7 Hu moment invariants (log-scaled)
 
     // Classifier output
-    std::string     label       = "unknown";
-    float           confidence  = 0.f;  ///< 1.0 = closest match
+    std::string     label           = "unknown";
+    float           confidence      = 0.f;
+    int             unknownFrames   = 0;    ///< Consecutive frames classified as unknown
 
-    // Embedding (Task 9)
+    // CNN embedding vector (512-dimensional ResNet18 output)
     std::vector<float> embedding;
 
     // Display
@@ -53,7 +53,7 @@ struct RegionInfo {
 };
 
 // =============================================================================
-// PipelineParams — all tunable values (keyboard now, ImGui sliders later)
+// PipelineParams — all tunable values, written by both keyboard and ImGui controls
 // =============================================================================
 struct PipelineParams {
 
@@ -78,14 +78,14 @@ struct PipelineParams {
     bool    showOrientedBBox    = true;
     bool    showFeatureText     = true;
 
-    // --- Task 6: Classifier --------------------------------------------------
+    // --- Classifier ----------------------------------------------------------
     int     kNeighbors          = 1;
     float   confidenceThresh    = 0.60f;
     int     distanceMetric      = 0;    ///< 0=scaled Euclidean, 1=cosine
 
-    // --- Task 9: Embedding ---------------------------------------------------
-    int     embeddingMode       = 0;    ///< 0=hand-features, 1=CNN ResNet18, 2=eigenspace PCA
-    int     roiSize             = 224;  ///< ROI resize before embedding
+    // --- CNN Embedding -------------------------------------------------------
+    int     embeddingMode       = 0;    ///< 0=hand-crafted features, 1=CNN ResNet18
+    int     roiSize             = 224;  ///< ROI resize dimension before embedding (pixels)
 };
 
 // =============================================================================
@@ -106,20 +106,20 @@ struct AppState {
     // --- Detected regions this frame -----------------------------------------
     std::vector<RegionInfo> regions;
 
-    // --- Training (Task 5) ---------------------------------------------------
+    // --- Training ------------------------------------------------------------
     std::string currentTrainLabel;
     int         samplesThisLabel    = 0;
-    bool        captureRequested    = false; ///< Set true on keypress/button
+    bool        captureRequested    = false; ///< Set true by keypress or GUI button to trigger capture
 
-    // --- Evaluation (Task 7) -------------------------------------------------
+    // --- Evaluation ----------------------------------------------------------
     std::vector<std::string>        evalLabels;
     std::vector<std::vector<int>>   confusionMatrix;
     float                           accuracy    = 0.f;
 
-    // --- Embedding (Task 9) --------------------------------------------------
+    // --- CNN Embedding -------------------------------------------------------
     std::vector<float>   lastEmbedding;
-    cv::Mat              lastCroppedROI;  ///< Last crop sent to ResNet
-    std::vector<cv::Mat> croppedROIs;     ///< One crop per detected region
+    cv::Mat              lastCroppedROI;  ///< Most recent aligned ROI sent to the network
+    std::vector<cv::Mat> croppedROIs;     ///< One aligned ROI crop per detected region
 
     // --- UI / diagnostics ----------------------------------------------------
     std::string statusMessage   = "Ready";
@@ -127,4 +127,9 @@ struct AppState {
     bool        running         = true;
     bool        embeddingMode_  = false; ///< Task 9: use CNN embedding classifier
     bool        showOverlay     = true;  ///< Show config overlay text on main window
+    bool        showPlot        = false; ///< Show embedding PCA scatter plot window
+
+    // --- Auto-learn ----------------------------------------------------------
+    bool        autoLearnPending = false; ///< True when an unknown region has persisted long enough to prompt the user
+    RegionInfo  autoLearnRegion;          ///< Copy of the region that triggered the auto-learn prompt
 };

@@ -4,11 +4,92 @@
 **Language:** C++17  
 **Platform:** Windows 10/11  
 
+---
+
+## License
+
+MIT License
+
+Copyright (c) 2026 Krushna Sanjay Sharma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Attribution
+
+Portions of this project are modified from third-party sources:
+
+- **`src/utilities.cpp`** — Modified from course utilities code by Prof. Bruce Maxwell (CS 5330). Original functions: `prepEmbeddingImage()`, `getEmbedding()`.
+- **Dear ImGui** — Copyright (c) 2014-2024 Omar Cornut. MIT License. https://github.com/ocornut/imgui
+- **GLFW** — Copyright (c) 2002-2006 Marcus Geelnard, 2006-2019 Camilla Löwy. zlib License. https://www.glfw.org
+- **OpenCV** — Apache 2.0 License. https://opencv.org
+- **ONNX Runtime** — MIT License. https://github.com/microsoft/onnxruntime
+- **ResNet18 model** — ONNX Model Zoo. Apache 2.0 License. https://github.com/onnx/models
+
+---
+
 Real-time object recognition system that identifies objects placed on a uniform background using shape feature analysis and CNN embeddings. Supports live camera, image, and video input.
 
 ---
 
-## Environment
+## Dependencies — Installation
+
+### OpenCV
+1. Download pre-built Windows binaries from https://opencv.org/releases
+2. Extract and build, or use pre-built:
+   - Headers + libs at: `C:\lib\build_opencv`
+   - Confirm: `C:\lib\build_opencv\OpenCVConfig.cmake` exists
+3. Add OpenCV DLLs to PATH or copy to `bin\Release\`:
+   ```bat
+   set PATH=%PATH%;C:\lib\build_opencv\bin\Release
+   ```
+
+### ONNX Runtime *(optional — required for CNN embeddings)*
+1. Download from https://github.com/microsoft/onnxruntime/releases
+2. Extract to `C:\lib\onnxruntime\`
+3. Confirm layout:
+   ```
+   C:\lib\onnxruntime\include\onnxruntime_cxx_api.h
+   C:\lib\onnxruntime\lib\onnxruntime.lib
+   C:\lib\onnxruntime\lib\onnxruntime.dll
+   ```
+
+### GLFW3 *(optional — required for ImGui GUI)*
+1. Download pre-built Windows binaries from https://www.glfw.org/download
+2. Extract to `C:\lib\glfw\`
+3. Confirm layout:
+   ```
+   C:\lib\glfw\include\GLFW\glfw3.h
+   C:\lib\glfw\lib-vc2022\glfw3.lib
+   ```
+
+### Dear ImGui *(optional — required for GUI)*
+```bat
+git clone https://github.com/ocornut/imgui third_party/imgui
+```
+
+### ResNet18 ONNX Model *(optional — required for CNN embeddings)*
+1. Download `resnet18-v2-7.onnx` from https://github.com/onnx/models
+2. Place at: `data/models/resnet18-v2-7.onnx`
+
+---
 
 | Dependency | Version | Location |
 |-----------|---------|----------|
@@ -98,7 +179,14 @@ Built with **Dear ImGui** (GLFW + OpenGL3 backend). Opens as a separate control 
 
 **Pipeline** *(open by default)*
 - Threshold value, blur kernel, threshold mode (Global / ISODATA / Sat+Intensity)
-- Morphology mode (Open/Close/Erode/Dilate), kernel size, iterations
+- Morphology mode, kernel size, iterations
+
+| Mode | Operations | Use when |
+|------|-----------|----------|
+| **Open** | Erode → Dilate | Speckle noise around object |
+| **Close** | Dilate → Erode | Holes or gaps inside object |
+| **Erode** | Shrinks foreground | Separate nearly-touching objects |
+| **Dilate** | Grows foreground | Object appears fragmented |
 - Min region area, max regions
 - Confidence threshold, K neighbours, distance metric
 - Window visibility checkboxes: Threshold, Cleaned, Regions, Crop, Axes, BBox, Features, Overlay

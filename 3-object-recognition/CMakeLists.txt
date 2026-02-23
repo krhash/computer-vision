@@ -111,6 +111,7 @@ set(PIPELINE_SOURCES
     src/Evaluator.cpp
     src/utilities.cpp
     src/Embedding.cpp
+    src/EmbeddingPlot.cpp
 )
 
 if(IMGUI_FOUND)
