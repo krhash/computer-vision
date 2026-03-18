@@ -136,14 +136,13 @@ target_link_libraries(calibrateCamera ar_core ${OpenCV_LIBS})
 ################################################################################
 
 # Create output directories for calibration data.
-# These are created at cmake configure time so the exe never has to create them.
-# Mirrors the approach used in the CBIR reference project.
+# Visual Studio is a multi-config generator — it appends Release/Debug to
+# CMAKE_RUNTIME_OUTPUT_DIRECTORY automatically, so we must create both.
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/data)
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/data/calibration)
-
-# Also create the directory next to the exe where it will actually write files
-file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/calibration)
+file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release/data/calibration)
+file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/data/calibration)
 
 ################################################################################
 # Build Summary
