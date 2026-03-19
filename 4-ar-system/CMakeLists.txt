@@ -76,7 +76,7 @@ set(AR_CORE_SOURCES
     src/VirtualObject.cpp
 
     # Task 7: Feature Detection
-    # src/FeatureDetector.cpp
+    src/FeatureDetector.cpp
 
     # Shared Utilities
     # src/Utils.cpp
@@ -91,7 +91,7 @@ set(AR_CORE_HEADERS
     include/VirtualObject.h
 
     # Task 7: Feature Detection
-    # include/FeatureDetector.h
+    include/FeatureDetector.h
 
     # Shared Utilities
     # include/Utils.h
@@ -128,8 +128,8 @@ add_executable(augmentedReality apps/augmentedReality.cpp)
 target_link_libraries(augmentedReality ar_core ${OpenCV_LIBS})
 
 # Application 3: Feature Detector (Task 7)
-# add_executable(featureDetector apps/featureDetector.cpp)
-# target_link_libraries(featureDetector ar_core ${OpenCV_LIBS})
+add_executable(featureDetector apps/featureDetector.cpp)
+target_link_libraries(featureDetector ar_core ${OpenCV_LIBS})
 
 ################################################################################
 # Data Directories
