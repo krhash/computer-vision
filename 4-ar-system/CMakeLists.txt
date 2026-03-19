@@ -72,8 +72,8 @@ set(AR_CORE_SOURCES
     src/CameraCalibration.cpp
 
     # Task 4-6: Pose Estimation & Virtual Object
-    # src/PoseEstimator.cpp
-    # src/VirtualObject.cpp
+    src/PoseEstimator.cpp
+    # src/VirtualObject.cpp  (Task 5-6)
 
     # Task 7: Feature Detection
     # src/FeatureDetector.cpp
@@ -87,8 +87,8 @@ set(AR_CORE_HEADERS
     include/CameraCalibration.h
 
     # Task 4-6: Pose Estimation & Virtual Object
-    # include/PoseEstimator.h
-    # include/VirtualObject.h
+    include/PoseEstimator.h
+    # include/VirtualObject.h  (Task 5-6)
 
     # Task 7: Feature Detection
     # include/FeatureDetector.h
@@ -124,8 +124,8 @@ add_executable(calibrateCamera apps/calibrateCamera.cpp)
 target_link_libraries(calibrateCamera ar_core ${OpenCV_LIBS})
 
 # Application 2: Augmented Reality (Tasks 4-6)
-# add_executable(augmentedReality apps/augmentedReality.cpp)
-# target_link_libraries(augmentedReality ar_core ${OpenCV_LIBS})
+add_executable(augmentedReality apps/augmentedReality.cpp)
+target_link_libraries(augmentedReality ar_core ${OpenCV_LIBS})
 
 # Application 3: Feature Detector (Task 7)
 # add_executable(featureDetector apps/featureDetector.cpp)
