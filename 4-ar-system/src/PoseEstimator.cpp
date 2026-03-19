@@ -1,9 +1,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // PoseEstimator.cpp - Pose Estimator Class Implementation
 // Author:      Krushna Sanjay Sharma
-// Description: Implements pose estimation using cv::solvePnP. Loads camera
-//              intrinsics from calibration XML, detects chessboard corners
-//              each frame, and computes the board's 6-DOF pose in real time.
+// Description: Implements pose estimation using cv::solvePnP and projects
+//              outer board corners and 3D axes onto the image using
+//              cv::projectPoints for real-time AR visualization.
 //
 // Reference:
 //   OpenCV Documentation - solvePnP
@@ -22,6 +22,7 @@
 PoseEstimator::PoseEstimator(const std::string& calibrationFile, int cameraId)
     : m_calibrationFile(calibrationFile)
     , m_cameraId(cameraId)
+    , m_displayMode(DisplayMode::CORNERS_AXES)
     , m_poseValid(false)
     , m_boardSize(BOARD_WIDTH, BOARD_HEIGHT)
 {
@@ -58,7 +59,9 @@ bool PoseEstimator::run()
     std::cout << " Calibration: " << m_calibrationFile << "\n";
     std::cout << " Point camera at the chessboard target.\n";
     std::cout << " Rotation and translation printed each frame.\n";
-    std::cout << " Press 'q' or ESC to quit.\n";
+    std::cout << " Controls:\n";
+    std::cout << "   SPACE  - cycle display mode (corners / axes / both)\n";
+    std::cout << "   'q'/ESC - quit\n";
     std::cout << "========================================\n\n";
 
     // Pre-build the fixed 3D world point set once — it never changes
@@ -85,6 +88,15 @@ bool PoseEstimator::run()
             {
                 // Print rvec and tvec to console every frame (Task 4 requirement)
                 printPose();
+
+                // ── Task 5: Project corners and/or axes onto image ────────────
+                if (m_displayMode == DisplayMode::CORNERS_ONLY ||
+                    m_displayMode == DisplayMode::CORNERS_AXES)
+                    projectOuterCorners(frame);
+
+                if (m_displayMode == DisplayMode::AXES_ONLY ||
+                    m_displayMode == DisplayMode::CORNERS_AXES)
+                    projectAxes(frame);
             }
         }
 
@@ -95,6 +107,23 @@ bool PoseEstimator::run()
 
         char key = static_cast<char>(cv::waitKey(30));
         if (key == 'q' || key == 27) break;
+
+        // Cycle display mode: CORNERS_AXES → CORNERS_ONLY → AXES_ONLY → ...
+        if (key == ' ')
+        {
+            switch (m_displayMode)
+            {
+                case DisplayMode::CORNERS_AXES:
+                    m_displayMode = DisplayMode::CORNERS_ONLY;
+                    std::cout << "[Mode] Outer corners only\n"; break;
+                case DisplayMode::CORNERS_ONLY:
+                    m_displayMode = DisplayMode::AXES_ONLY;
+                    std::cout << "[Mode] 3D axes only\n"; break;
+                case DisplayMode::AXES_ONLY:
+                    m_displayMode = DisplayMode::CORNERS_AXES;
+                    std::cout << "[Mode] Corners + axes\n"; break;
+            }
+        }
     }
 
     cap.release();
@@ -267,6 +296,179 @@ void PoseEstimator::printPose() const
 }
 
 // ----------------------------------------------------------------------------
+// projectOuterCorners() - Task 5a
+//
+// Projects the 4 outer corners of the chessboard grid onto the image plane.
+//
+// cv::projectPoints transformation chain (per OpenCV docs):
+//   World coords → Camera coords (rvec/tvec) → Normalized coords
+//   → Distortion applied → Pixel coords (cameraMatrix)
+//
+// Full signature:
+//   void cv::projectPoints(
+//       InputArray  objectPoints,        // 3D world points (Vec3f, Nx3)
+//       InputArray  rvec,                // rotation vector from solvePnP
+//       InputArray  tvec,                // translation vector from solvePnP
+//       InputArray  cameraMatrix,        // 3x3 intrinsic matrix
+//       InputArray  distCoeffs,          // distortion coefficients
+//       OutputArray imagePoints,         // OUTPUT: 2D pixel positions (Point2f)
+//       OutputArray jacobian=noArray(),  // optional — not needed for rendering
+//       double      aspectRatio=0        // optional — 0 = no constraint
+//   )
+//
+// The 4 outer corners in world coordinates (square units, Z=0):
+//   Top-left     : (0,  0,  0)
+//   Top-right    : (8,  0,  0)   — last col internal corner index
+//   Bottom-left  : (0, -5,  0)   — last row internal corner index (negative)
+//   Bottom-right : (8, -5,  0)
+// ----------------------------------------------------------------------------
+void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
+{
+    if (!m_poseValid) return;
+
+    // Define the 4 outer corner world positions (Vec3f = Nx3 format for projectPoints)
+    std::vector<cv::Vec3f> corners3D = {
+        { 0.0f,  0.0f, 0.0f },   // top-left
+        { 8.0f,  0.0f, 0.0f },   // top-right
+        { 0.0f, -5.0f, 0.0f },   // bottom-left
+        { 8.0f, -5.0f, 0.0f }    // bottom-right
+    };
+
+    // Project 3D world corners → 2D image pixel positions.
+    // Jacobian omitted (cv::noArray()) — only needed for optimization, not rendering.
+    std::vector<cv::Point2f> projected;
+    cv::projectPoints(
+        corners3D,          // 3D object points in world space  (Vec3f vector)
+        m_rvec,             // rotation vector    from solvePnP
+        m_tvec,             // translation vector from solvePnP
+        m_cameraMatrix,     // 3x3 intrinsic matrix
+        m_distCoeffs,       // distortion coefficients
+        projected,          // OUTPUT: 2D pixel coordinates
+        cv::noArray(),      // jacobian: not needed for rendering
+        0                   // aspectRatio: 0 = unconstrained
+    );
+
+    // Colors per corner: TL=yellow, TR=cyan, BL=magenta, BR=white
+    std::vector<cv::Scalar> colors = {
+        cv::Scalar(0,   255, 255),   // yellow  - top-left
+        cv::Scalar(255, 255, 0  ),   // cyan    - top-right
+        cv::Scalar(255, 0,   255),   // magenta - bottom-left
+        cv::Scalar(255, 255, 255)    // white   - bottom-right
+    };
+    std::vector<std::string> labels = { "TL", "TR", "BL", "BR" };
+
+    cv::Rect imgBounds(0, 0, frame.cols, frame.rows);
+
+    // Draw projected corners as filled circles with labels.
+    // Guard against points projected outside the image frame (can happen
+    // when the board is at a steep angle near the image boundary).
+    for (int i = 0; i < 4; ++i)
+    {
+        cv::Point pt = static_cast<cv::Point>(projected[i]);
+        if (!imgBounds.contains(pt)) continue;   // skip out-of-frame points
+
+        cv::circle(frame, pt, 10, colors[i], -1);           // filled circle
+        cv::circle(frame, pt, 10, cv::Scalar(0, 0, 0), 1);  // black border
+        cv::putText(frame, labels[i],
+                    pt + cv::Point(12, 5),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.55, colors[i], 2);
+    }
+
+    // Draw the board outline connecting the 4 projected corners:
+    // TL→TR, TR→BR, BR→BL, BL→TL
+    auto inBounds = [&](cv::Point2f p) {
+        return imgBounds.contains(static_cast<cv::Point>(p));
+    };
+    if (inBounds(projected[0]) && inBounds(projected[1]))
+        cv::line(frame, projected[0], projected[1], cv::Scalar(0, 255, 255), 2);
+    if (inBounds(projected[1]) && inBounds(projected[3]))
+        cv::line(frame, projected[1], projected[3], cv::Scalar(0, 255, 255), 2);
+    if (inBounds(projected[3]) && inBounds(projected[2]))
+        cv::line(frame, projected[3], projected[2], cv::Scalar(0, 255, 255), 2);
+    if (inBounds(projected[2]) && inBounds(projected[0]))
+        cv::line(frame, projected[2], projected[0], cv::Scalar(0, 255, 255), 2);
+}
+
+// ----------------------------------------------------------------------------
+// projectAxes() - Task 5b
+//
+// Projects 3D coordinate axes from the board origin onto the image using
+// cv::projectPoints. These axes also serve as the anchor frame for Task 6.
+//
+// Axis endpoints in world coordinates (length = 3 squares):
+//   Origin : (0, 0,  0)  — top-left internal corner of chessboard
+//   X tip  : (3, 0,  0)  drawn in BLUE
+//   Y tip  : (0, 3,  0)  drawn in GREEN  (positive Y = downward in our convention)
+//   Z tip  : (0, 0, -3)  drawn in RED    (negative Z = toward viewer/camera)
+//
+// The Z axis pointing toward the viewer (negative Z) means a virtual object
+// placed at Z < 0 will float above the board toward the camera — which is
+// exactly what Task 6 requires.
+// ----------------------------------------------------------------------------
+void PoseEstimator::projectAxes(cv::Mat& frame) const
+{
+    if (!m_poseValid) return;
+
+    // Axis points: origin + 3 tips, all in world space (Vec3f Nx3 format)
+    // World points use (col, -row, 0) — Y is negated — so:
+    //   Y tip must be NEGATIVE to point down along board rows
+    //   Z tip is POSITIVE to point toward camera (handedness flip from -Y)
+    std::vector<cv::Vec3f> axisPoints = {
+        { 0.0f,  0.0f, 0.0f },   // [0] origin
+        { 3.0f,  0.0f, 0.0f },   // [1] X tip — right along columns
+        { 0.0f, -3.0f, 0.0f },   // [2] Y tip — NEGATIVE = down along rows
+        { 0.0f,  0.0f, 3.0f }    // [3] Z tip — POSITIVE = toward camera
+    };
+
+    // Project all 4 points in one call — more efficient than calling per-axis.
+    // Jacobian omitted as it is only needed for optimization, not drawing.
+    std::vector<cv::Point2f> projected;
+    cv::projectPoints(
+        axisPoints,         // 3D world points  (Vec3f vector, Nx3 format)
+        m_rvec,             // rotation vector    from solvePnP
+        m_tvec,             // translation vector from solvePnP
+        m_cameraMatrix,     // 3x3 intrinsic matrix
+        m_distCoeffs,       // distortion coefficients
+        projected,          // OUTPUT: 2D pixel coordinates
+        cv::noArray(),      // jacobian: not needed for rendering
+        0                   // aspectRatio: 0 = unconstrained
+    );
+
+    cv::Rect  imgBounds(0, 0, frame.cols, frame.rows);
+    cv::Point origin = static_cast<cv::Point>(projected[0]);
+    cv::Point xTip   = static_cast<cv::Point>(projected[1]);
+    cv::Point yTip   = static_cast<cv::Point>(projected[2]);
+    cv::Point zTip   = static_cast<cv::Point>(projected[3]);
+
+    // Only draw if the origin itself is on screen
+    if (!imgBounds.contains(origin)) return;
+
+    // Draw axes as thick arrowed lines.
+    // OpenCV BGR color order: X=Blue, Y=Green, Z=Red
+    // arrowedLine params: img, pt1, pt2, color, thickness, lineType, shift, tipLength
+    if (imgBounds.contains(xTip))
+        cv::arrowedLine(frame, origin, xTip, cv::Scalar(255, 0,   0  ), 3, 8, 0, 0.2);
+    if (imgBounds.contains(yTip))
+        cv::arrowedLine(frame, origin, yTip, cv::Scalar(0,   255, 0  ), 3, 8, 0, 0.2);
+    if (imgBounds.contains(zTip))
+        cv::arrowedLine(frame, origin, zTip, cv::Scalar(0,   0,   255), 3, 8, 0, 0.2);
+
+    // Axis labels at the tips
+    if (imgBounds.contains(xTip))
+        cv::putText(frame, "X", xTip + cv::Point(5, 0),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 0,   0  ), 2);
+    if (imgBounds.contains(yTip))
+        cv::putText(frame, "Y", yTip + cv::Point(5, 0),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,   255, 0  ), 2);
+    if (imgBounds.contains(zTip))
+        cv::putText(frame, "Z", zTip + cv::Point(5, 0),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,   0,   255), 2);
+
+    // Small white dot at the origin for visual reference
+    cv::circle(frame, origin, 5, cv::Scalar(255, 255, 255), -1);
+}
+
+// ----------------------------------------------------------------------------
 // overlayStatus()
 // Draws current rvec/tvec values and instructions onto the video frame.
 // ----------------------------------------------------------------------------
@@ -279,6 +481,17 @@ void PoseEstimator::overlayStatus(cv::Mat& frame, bool poseFound) const
     std::string status = poseFound ? "Pose estimated" : "No board detected";
     cv::putText(frame, status, cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
+
+    // Show current display mode (Task 5)
+    std::string modeStr;
+    switch (m_displayMode)
+    {
+        case DisplayMode::CORNERS_ONLY:  modeStr = "Mode: Outer corners"; break;
+        case DisplayMode::AXES_ONLY:     modeStr = "Mode: 3D axes";       break;
+        case DisplayMode::CORNERS_AXES:  modeStr = "Mode: Corners + axes"; break;
+    }
+    cv::putText(frame, modeStr, cv::Point(10, 55),
+                cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(200, 200, 200), 1);
 
     if (poseFound)
     {

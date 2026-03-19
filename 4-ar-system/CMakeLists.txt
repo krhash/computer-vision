@@ -73,7 +73,7 @@ set(AR_CORE_SOURCES
 
     # Task 4-6: Pose Estimation & Virtual Object
     src/PoseEstimator.cpp
-    # src/VirtualObject.cpp  (Task 5-6)
+    src/VirtualObject.cpp
 
     # Task 7: Feature Detection
     # src/FeatureDetector.cpp
@@ -88,7 +88,7 @@ set(AR_CORE_HEADERS
 
     # Task 4-6: Pose Estimation & Virtual Object
     include/PoseEstimator.h
-    # include/VirtualObject.h  (Task 5-6)
+    include/VirtualObject.h
 
     # Task 7: Feature Detection
     # include/FeatureDetector.h

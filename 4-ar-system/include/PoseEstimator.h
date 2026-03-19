@@ -6,6 +6,7 @@
 //              - Detecting chessboard corners each frame
 //              - Running cv::solvePnP to get board rotation and translation
 //              - Printing real-time rotation and translation to the console
+//              - Projecting outer board corners and 3D axes onto the image
 //
 // Reference:
 //   OpenCV Documentation - solvePnP
@@ -13,12 +14,7 @@
 //
 // Task coverage:
 //   Task 4 - Calculate current position of the camera using solvePnP
-//
-// Key OpenCV functions used:
-//   cv::solvePnP       - compute rotation (rvec) and translation (tvec)
-//                        from 3D-2D point correspondences
-//   cv::FileStorage    - read calibration XML written by CameraCalibration
-//   cv::findChessboardCorners / cv::cornerSubPix - reused from Task 1
+//   Task 5 - Project outer corners and 3D axes using cv::projectPoints
 //
 // solvePnP signature:
 //   bool cv::solvePnP(
@@ -71,6 +67,16 @@ public:
     static constexpr int BOARD_HEIGHT = 6;
 
     // -------------------------------------------------------------------------
+    // Display mode — toggled with spacebar during runtime
+    // -------------------------------------------------------------------------
+    enum class DisplayMode
+    {
+        CORNERS_ONLY,   // Task 5a: project the 4 outer board corners
+        AXES_ONLY,      // Task 5b: draw 3D XYZ axes at board origin
+        CORNERS_AXES    // Task 5c: both together (default)
+    };
+
+    // -------------------------------------------------------------------------
     // Constructor
     // calibrationFile : path to the XML written by CameraCalibration::run()
     //                   (default: same location the calibrateCamera app saves to)
@@ -85,10 +91,12 @@ public:
     // run()
     // Opens the webcam and loops:
     //   1. Detect chessboard corners
-    //   2. Call solvePnP with the board's 3D world points
-    //   3. Print rvec and tvec to console each frame
+    //   2. Call solvePnP with the board's 3D world points          (Task 4)
+    //   3. Print rvec and tvec to console each frame               (Task 4)
+    //   4. Project outer corners / 3D axes onto the image          (Task 5)
     // Controls:
-    //   'q' / ESC - quit
+    //   SPACE    - cycle through display modes (corners / axes / both)
+    //   'q'/ESC  - quit
     // Returns true if the loop ran without errors.
     // -------------------------------------------------------------------------
     bool run();
@@ -101,24 +109,32 @@ public:
     const cv::Mat& getCameraMatrix()  const { return m_cameraMatrix; }
     const cv::Mat& getDistCoeffs()    const { return m_distCoeffs; }
     bool           isPoseValid()      const { return m_poseValid; }
+    DisplayMode    getDisplayMode()   const { return m_displayMode; }
+
+    // -------------------------------------------------------------------------
+    // cycleDisplayMode() — advances through CORNERS_AXES → CORNERS → AXES
+    // Called from augmentedReality.cpp on SPACE keypress
+    // -------------------------------------------------------------------------
+    void cycleDisplayMode()
+    {
+        switch (m_displayMode)
+        {
+            case DisplayMode::CORNERS_AXES:  m_displayMode = DisplayMode::CORNERS_ONLY; break;
+            case DisplayMode::CORNERS_ONLY:  m_displayMode = DisplayMode::AXES_ONLY;    break;
+            case DisplayMode::AXES_ONLY:     m_displayMode = DisplayMode::CORNERS_AXES; break;
+        }
+    }
+
+    // ── Methods used directly by augmentedReality.cpp (Tasks 4-6) ────────────
+    bool loadCalibration();
+    bool detectCorners(const cv::Mat& frame, std::vector<cv::Point2f>& corners);
+    bool estimatePose(const std::vector<cv::Point2f>& corners);
+    void printPose() const;
+    void projectOuterCorners(cv::Mat& frame) const;
+    void projectAxes(cv::Mat& frame) const;
+    void overlayStatus(cv::Mat& frame, bool poseFound) const;
 
 protected:
-    // -------------------------------------------------------------------------
-    // loadCalibration()
-    // Reads camera_matrix and distortion_coefficients from the XML file.
-    // Returns false if the file cannot be opened or keys are missing.
-    // -------------------------------------------------------------------------
-    bool loadCalibration();
-
-    // -------------------------------------------------------------------------
-    // detectCorners()
-    // Finds and refines chessboard corners in 'frame'.
-    // Draws corners onto 'frame' when found.
-    // Returns true and fills 'corners' on success.
-    // -------------------------------------------------------------------------
-    bool detectCorners(const cv::Mat& frame,
-                       std::vector<cv::Point2f>& corners);
-
     // -------------------------------------------------------------------------
     // buildWorldPoints()
     // Returns the fixed 3D world coordinates for all internal board corners.
@@ -127,33 +143,13 @@ protected:
     // -------------------------------------------------------------------------
     void buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const;
 
-    // -------------------------------------------------------------------------
-    // estimatePose()
-    // Calls cv::solvePnP using the detected 2D corners and the fixed 3D world
-    // points. Stores results in m_rvec and m_tvec.
-    // Returns true on success.
-    // -------------------------------------------------------------------------
-    bool estimatePose(const std::vector<cv::Point2f>& corners);
-
-    // -------------------------------------------------------------------------
-    // printPose()
-    // Prints the current rvec and tvec values to stdout with labels.
-    // Called every frame when pose is valid — helps verify Task 4 behaviour.
-    // -------------------------------------------------------------------------
-    void printPose() const;
-
-    // -------------------------------------------------------------------------
-    // overlayStatus()
-    // Draws pose values and instructions onto the display frame.
-    // -------------------------------------------------------------------------
-    void overlayStatus(cv::Mat& frame, bool poseFound) const;
-
     // =========================================================================
     // Member variables
     // =========================================================================
 
-    std::string m_calibrationFile;  // path to calibration XML
-    int         m_cameraId;         // webcam index
+    std::string  m_calibrationFile;  // path to calibration XML
+    int          m_cameraId;         // webcam index
+    DisplayMode  m_displayMode;      // current Task 5 display mode
 
     // Intrinsics loaded from calibration file
     cv::Mat m_cameraMatrix;         // 3x3 intrinsic matrix
