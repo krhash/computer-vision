@@ -76,9 +76,8 @@ int main(int argc, char* argv[])
 
     bool showRocket = true;
 
-    // Pre-build world points (reused every frame)
+    // Pre-build world points — convention (col, -row, 0)
     std::vector<cv::Vec3f> worldPoints;
-    // (re-use PoseEstimator's buildWorldPoints via a local copy)
     for (int row = 0; row < PoseEstimator::BOARD_HEIGHT; ++row)
         for (int col = 0; col < PoseEstimator::BOARD_WIDTH; ++col)
             worldPoints.emplace_back(float(col), float(-row), 0.0f);

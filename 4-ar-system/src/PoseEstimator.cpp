@@ -22,7 +22,7 @@
 PoseEstimator::PoseEstimator(const std::string& calibrationFile, int cameraId)
     : m_calibrationFile(calibrationFile)
     , m_cameraId(cameraId)
-    , m_displayMode(DisplayMode::CORNERS_AXES)
+    , m_displayMode(DisplayMode::AXES_ONLY)
     , m_poseValid(false)
     , m_boardSize(BOARD_WIDTH, BOARD_HEIGHT)
 {
@@ -75,29 +75,20 @@ bool PoseEstimator::run()
         cap >> frame;
         if (frame.empty()) break;
 
-        // ── Task 4: Detect corners then solve for pose ────────────────────────
         std::vector<cv::Point2f> corners;
         bool found = detectCorners(frame, corners);
 
-        if (found)
+        if (found && estimatePose(corners))
         {
-            // solvePnP: given known 3D world points and their detected 2D image
-            // positions, compute the rotation and translation that maps world
-            // space into camera space.
-            if (estimatePose(corners))
-            {
-                // Print rvec and tvec to console every frame (Task 4 requirement)
-                printPose();
+            printPose();
 
-                // ── Task 5: Project corners and/or axes onto image ────────────
-                if (m_displayMode == DisplayMode::CORNERS_ONLY ||
-                    m_displayMode == DisplayMode::CORNERS_AXES)
-                    projectOuterCorners(frame);
+            if (m_displayMode == DisplayMode::CORNERS_ONLY ||
+                m_displayMode == DisplayMode::CORNERS_AXES)
+                projectOuterCorners(frame);
 
-                if (m_displayMode == DisplayMode::AXES_ONLY ||
-                    m_displayMode == DisplayMode::CORNERS_AXES)
-                    projectAxes(frame);
-            }
+            if (m_displayMode == DisplayMode::AXES_ONLY ||
+                m_displayMode == DisplayMode::CORNERS_AXES)
+                projectAxes(frame);
         }
 
         // Overlay status and current pose values on the frame
@@ -182,7 +173,7 @@ bool PoseEstimator::detectCorners(const cv::Mat& frame,
 
     if (found)
     {
-        // Refine to sub-pixel accuracy for better pose accuracy
+        // Refine to sub-pixel accuracy — no drawing, pure detection only
         cv::cornerSubPix(
             gray, corners,
             cv::Size(11, 11),
@@ -190,10 +181,6 @@ bool PoseEstimator::detectCorners(const cv::Mat& frame,
             cv::TermCriteria(
                 cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.001)
         );
-
-        cv::drawChessboardCorners(
-            const_cast<cv::Mat&>(frame), m_boardSize,
-            cv::Mat(corners), found);
     }
 
     return found;
@@ -202,7 +189,8 @@ bool PoseEstimator::detectCorners(const cv::Mat& frame,
 // ----------------------------------------------------------------------------
 // buildWorldPoints()
 // Fixed 3D world coordinates for all internal chessboard corners.
-// Convention: (col, -row, 0) — same as CameraCalibration.
+// Convention: (col, -row, 0)
+//   +Y away from board (north), -Y down along rows, +Z toward camera.
 // ----------------------------------------------------------------------------
 void PoseEstimator::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
 {
@@ -212,9 +200,9 @@ void PoseEstimator::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
     for (int row = 0; row < BOARD_HEIGHT; ++row)
         for (int col = 0; col < BOARD_WIDTH; ++col)
             pointSet.emplace_back(
-                static_cast<float>(col),
-                static_cast<float>(-row),
-                0.0f
+                static_cast<float>(col),    // X = column
+                static_cast<float>(-row),   // Y = -row (+Y away from board)
+                0.0f                        // Z = 0 (planar)
             );
 }
 
@@ -326,12 +314,12 @@ void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
 {
     if (!m_poseValid) return;
 
-    // Define the 4 outer corner world positions (Vec3f = Nx3 format for projectPoints)
+    // 4 outer corners. Y = -row so bottom corners are negative Y.
     std::vector<cv::Vec3f> corners3D = {
-        { 0.0f,  0.0f, 0.0f },   // top-left
-        { 8.0f,  0.0f, 0.0f },   // top-right
-        { 0.0f, -5.0f, 0.0f },   // bottom-left
-        { 8.0f, -5.0f, 0.0f }    // bottom-right
+        { 0.0f,  0.0f, 0.0f },   // top-left     (0,  0)
+        { 8.0f,  0.0f, 0.0f },   // top-right    (8,  0)
+        { 0.0f, -5.0f, 0.0f },   // bottom-left  (0, -5)
+        { 8.0f, -5.0f, 0.0f }    // bottom-right (8, -5)
     };
 
     // Project 3D world corners → 2D image pixel positions.
@@ -348,45 +336,42 @@ void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
         0                   // aspectRatio: 0 = unconstrained
     );
 
-    // Colors per corner: TL=yellow, TR=cyan, BL=magenta, BR=white
-    std::vector<cv::Scalar> colors = {
-        cv::Scalar(0,   255, 255),   // yellow  - top-left
-        cv::Scalar(255, 255, 0  ),   // cyan    - top-right
-        cv::Scalar(255, 0,   255),   // magenta - bottom-left
-        cv::Scalar(255, 255, 255)    // white   - bottom-right
-    };
-    std::vector<std::string> labels = { "TL", "TR", "BL", "BR" };
-
     cv::Rect imgBounds(0, 0, frame.cols, frame.rows);
 
-    // Draw projected corners as filled circles with labels.
-    // Guard against points projected outside the image frame (can happen
-    // when the board is at a steep angle near the image boundary).
+    cv::Scalar dotColor (0, 165, 255);   // orange
+    cv::Scalar lineColor(0, 165, 255);   // orange
+
+    std::vector<std::string> labels = { "TL", "TR", "BL", "BR" };
     for (int i = 0; i < 4; ++i)
     {
         cv::Point pt = static_cast<cv::Point>(projected[i]);
-        if (!imgBounds.contains(pt)) continue;   // skip out-of-frame points
+        if (!imgBounds.contains(pt)) continue;
 
-        cv::circle(frame, pt, 10, colors[i], -1);           // filled circle
-        cv::circle(frame, pt, 10, cv::Scalar(0, 0, 0), 1);  // black border
-        cv::putText(frame, labels[i],
-                    pt + cv::Point(12, 5),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.55, colors[i], 2);
+        // Small dot
+        cv::circle(frame, pt, 5, cv::Scalar(0, 0, 0), -1);
+        cv::circle(frame, pt, 4, dotColor, -1);
+
+        // Label drawn ABOVE the dot so it never hides under lines
+        cv::Point labelPos = pt + cv::Point(-10, -10);
+        cv::putText(frame, labels[i], labelPos,
+                    cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0,0,0), 3);
+        cv::putText(frame, labels[i], labelPos,
+                    cv::FONT_HERSHEY_SIMPLEX, 0.4, dotColor, 1);
     }
 
-    // Draw the board outline connecting the 4 projected corners:
-    // TL→TR, TR→BR, BR→BL, BL→TL
+    // Board outline in orange with dark shadow for contrast
     auto inBounds = [&](cv::Point2f p) {
         return imgBounds.contains(static_cast<cv::Point>(p));
     };
-    if (inBounds(projected[0]) && inBounds(projected[1]))
-        cv::line(frame, projected[0], projected[1], cv::Scalar(0, 255, 255), 2);
-    if (inBounds(projected[1]) && inBounds(projected[3]))
-        cv::line(frame, projected[1], projected[3], cv::Scalar(0, 255, 255), 2);
-    if (inBounds(projected[3]) && inBounds(projected[2]))
-        cv::line(frame, projected[3], projected[2], cv::Scalar(0, 255, 255), 2);
-    if (inBounds(projected[2]) && inBounds(projected[0]))
-        cv::line(frame, projected[2], projected[0], cv::Scalar(0, 255, 255), 2);
+    auto drawLine = [&](cv::Point2f a, cv::Point2f b) {
+        if (!inBounds(a) || !inBounds(b)) return;
+        cv::line(frame, a, b, cv::Scalar(0, 0, 0), 3);  // dark shadow
+        cv::line(frame, a, b, lineColor, 1);             // orange on top
+    };
+    drawLine(projected[0], projected[1]);   // TL → TR
+    drawLine(projected[1], projected[3]);   // TR → BR
+    drawLine(projected[3], projected[2]);   // BR → BL
+    drawLine(projected[2], projected[0]);   // BL → TL
 }
 
 // ----------------------------------------------------------------------------
@@ -409,15 +394,15 @@ void PoseEstimator::projectAxes(cv::Mat& frame) const
 {
     if (!m_poseValid) return;
 
-    // Axis points: origin + 3 tips, all in world space (Vec3f Nx3 format)
-    // World points use (col, -row, 0) — Y is negated — so:
-    //   Y tip must be NEGATIVE to point down along board rows
-    //   Z tip is POSITIVE to point toward camera (handedness flip from -Y)
+    // Axis tips in world space. Convention: (col, -row, 0)
+    //   +X = right along columns
+    //   +Y = away from board (north) — because Y = -row
+    //   +Z = toward camera           — because Z positive = toward viewer
     std::vector<cv::Vec3f> axisPoints = {
-        { 0.0f,  0.0f, 0.0f },   // [0] origin
-        { 3.0f,  0.0f, 0.0f },   // [1] X tip — right along columns
-        { 0.0f, -3.0f, 0.0f },   // [2] Y tip — NEGATIVE = down along rows
-        { 0.0f,  0.0f, 3.0f }    // [3] Z tip — POSITIVE = toward camera
+        { 0.0f,  0.0f,  0.0f },   // [0] origin
+        { 3.0f,  0.0f,  0.0f },   // [1] X tip — right along columns
+        { 0.0f,  3.0f,  0.0f },   // [2] Y tip — AWAY from board (+Y north)
+        { 0.0f,  0.0f,  3.0f }    // [3] Z tip — toward camera   (+Z)
     };
 
     // Project all 4 points in one call — more efficient than calling per-axis.
@@ -478,50 +463,50 @@ void PoseEstimator::overlayStatus(cv::Mat& frame, bool poseFound) const
         ? cv::Scalar(0, 255, 0)
         : cv::Scalar(0, 0, 255);
 
+    // Line 1: pose status
     std::string status = poseFound ? "Pose estimated" : "No board detected";
     cv::putText(frame, status, cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
 
-    // Show current display mode (Task 5)
-    std::string modeStr;
-    switch (m_displayMode)
-    {
-        case DisplayMode::CORNERS_ONLY:  modeStr = "Mode: Outer corners"; break;
-        case DisplayMode::AXES_ONLY:     modeStr = "Mode: 3D axes";       break;
-        case DisplayMode::CORNERS_AXES:  modeStr = "Mode: Corners + axes"; break;
-    }
-    cv::putText(frame, modeStr, cv::Point(10, 55),
-                cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(200, 200, 200), 1);
-
     if (poseFound)
     {
-        // Display tvec (most intuitive: represents camera-to-board distance)
         auto fmt = [](double v) {
             std::ostringstream ss;
             ss << std::fixed << std::setprecision(2) << v;
             return ss.str();
         };
 
+        // Line 2: tvec (dark outline + bright text for readability)
         std::string tvecStr = "tvec: ["
             + fmt(m_tvec.at<double>(0)) + ", "
             + fmt(m_tvec.at<double>(1)) + ", "
             + fmt(m_tvec.at<double>(2)) + "]";
+        cv::putText(frame, tvecStr, cv::Point(10, 55),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,0), 3);
+        cv::putText(frame, tvecStr, cv::Point(10, 55),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
 
+        // Line 3: rvec
         std::string rvecStr = "rvec: ["
             + fmt(m_rvec.at<double>(0)) + ", "
             + fmt(m_rvec.at<double>(1)) + ", "
             + fmt(m_rvec.at<double>(2)) + "]";
+        cv::putText(frame, rvecStr, cv::Point(10, 75),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,0), 3);
+        cv::putText(frame, rvecStr, cv::Point(10, 75),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
 
-        cv::putText(frame, tvecStr, cv::Point(10, 60),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.55,
-                    cv::Scalar(255, 255, 255), 1);
-        cv::putText(frame, rvecStr, cv::Point(10, 85),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.55,
-                    cv::Scalar(255, 255, 255), 1);
+        // Line 4: display mode
+        std::string modeStr;
+        switch (m_displayMode)
+        {
+            case DisplayMode::CORNERS_ONLY:  modeStr = "Mode: Corners";       break;
+            case DisplayMode::AXES_ONLY:     modeStr = "Mode: Axes";          break;
+            case DisplayMode::CORNERS_AXES:  modeStr = "Mode: Corners+Axes";  break;
+        }
+        cv::putText(frame, modeStr, cv::Point(10, 95),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,0), 3);
+        cv::putText(frame, modeStr, cv::Point(10, 95),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(200, 200, 200), 1);
     }
-
-    cv::putText(frame, "q/ESC: quit",
-                cv::Point(10, frame.rows - 15),
-                cv::FONT_HERSHEY_SIMPLEX, 0.5,
-                cv::Scalar(180, 180, 180), 1);
 }

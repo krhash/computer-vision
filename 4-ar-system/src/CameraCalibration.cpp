@@ -179,21 +179,17 @@ bool CameraCalibration::detectCorners(const cv::Mat& frame,
     if (found)
     {
         // Refine corner positions to sub-pixel accuracy.
-        // winSize=11 is the half-size of the search window (22x22 total).
-        // TermCriteria: stop after 30 iterations or when accuracy < 0.001.
         cv::cornerSubPix(
             gray, corners,
-            cv::Size(11, 11),   // search window half-size
-            cv::Size(-1, -1),   // no zero zone
+            cv::Size(11, 11),
+            cv::Size(-1, -1),
             cv::TermCriteria(
                 cv::TermCriteria::EPS + cv::TermCriteria::COUNT,
-                30,     // max iterations
-                0.001   // epsilon
+                30, 0.001
             )
         );
 
-        // Print info about the first corner (helpful for debugging orientation)
-        // The first corner is typically in the upper-left of the pattern
+        // Print info about the first corner
         if (!corners.empty())
         {
             std::cout << "[Task 1] Corners found: " << corners.size()
@@ -202,14 +198,10 @@ bool CameraCalibration::detectCorners(const cv::Mat& frame,
                       << corners[0].x << ", " << corners[0].y << ")\n";
         }
 
-        // Draw corners on the (color) frame for visualization
-        // This modifies 'frame' in-place; caller passes a display copy
-        cv::drawChessboardCorners(
-            const_cast<cv::Mat&>(frame),
-            m_boardSize,
-            cv::Mat(corners),
-            found
-        );
+        // Draw small green dots at each corner — no rainbow grid lines
+        for (const auto& pt : corners)
+            cv::circle(const_cast<cv::Mat&>(frame), pt, 3,
+                       cv::Scalar(0, 255, 0), -1);
     }
 
     return found;
@@ -235,15 +227,17 @@ void CameraCalibration::saveFrame(const std::vector<cv::Point2f>& corners)
 // buildWorldPoints()
 // Creates 3D world coordinates for all internal chessboard corners.
 //
-// Convention (per project description):
+// Convention (per assignment description):
 //   - Squares treated as 1x1 units
 //   - (0,0,0) at upper-left internal corner
 //   - X increases rightward along columns
-//   - Y decreases downward along rows (Z-axis toward viewer convention)
+//   - Y increases downward along rows  (positive Y = down)
+//   - Z negative = toward the viewer   (per assignment: "first point on next
+//     row is (0,-1,0) if Z-axis comes towards the viewer" — meaning +Y is down)
 //   - Z = 0 for all points (planar target)
 //
 // This results in: (0,0,0), (1,0,0), ..., (8,0,0),
-//                  (0,-1,0), (1,-1,0), ..., (8,-1,0), ...
+//                  (0,1,0), (1,1,0), ..., (8,1,0), ...
 // ----------------------------------------------------------------------------
 void CameraCalibration::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
 {
@@ -254,10 +248,10 @@ void CameraCalibration::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
     {
         for (int col = 0; col < BOARD_WIDTH; ++col)
         {
-            // Z = 0 (planar board), Y negative because rows increase downward
+            // Y positive downward, Z = 0 (planar board)
             pointSet.emplace_back(
                 static_cast<float>(col),   // X = column index
-                static_cast<float>(-row),  // Y = -row (Z toward viewer)
+                static_cast<float>(row),   // Y = row index (positive downward)
                 0.0f                       // Z = 0 (planar)
             );
         }

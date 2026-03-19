@@ -129,18 +129,19 @@ private:
     std::vector<LineSegment> m_lines;
 
     // ── Rocket geometry constants (world space, square units) ─────────────────
-    // World points use (col, -row, 0) so Y must be NEGATIVE to sit on the board.
-    // Body centered at column 4, row 2.5 → world Y = -2.5
-    // Z POSITIVE = toward camera (above board)
-    static constexpr float X_LEFT   =  3.0f;
-    static constexpr float X_RIGHT  =  5.0f;
-    static constexpr float Y_FRONT  = -1.5f;  // -row 1.5 = front face
-    static constexpr float Y_BACK   = -3.5f;  // -row 3.5 = back face
-    static constexpr float Z_BASE   =  0.0f;  // sits on board surface
-    static constexpr float Z_TOP    =  3.0f;  // top of body (3 squares above board)
-    static constexpr float Z_APEX   =  5.0f;  // nose cone tip (5 squares above board)
-    static constexpr float Z_FIN    =  2.0f;  // fin attachment height on body
-    static constexpr float Z_EXHST  = -1.0f;  // exhaust tip (below board surface)
-    static constexpr float X_CENTER =  4.0f;  // horizontal center of rocket
-    static constexpr float Y_CENTER = -2.5f;  // depth center (-row 2.5)
+    // Convention: (col, -row, 0)
+    //   +Y = away from board (north)
+    //   Y must be NEGATIVE to place rocket on board rows (row 1.5 → Y=-1.5)
+    //   +Z = toward camera — rocket rises in +Z direction
+    static constexpr float X_LEFT   =  3.5f;   // narrower body
+    static constexpr float X_RIGHT  =  4.5f;   // narrower body
+    static constexpr float Y_FRONT  = -2.0f;   // shallower depth
+    static constexpr float Y_BACK   = -3.0f;   // shallower depth
+    static constexpr float Z_BASE   =  2.0f;   // float 2 squares above board
+    static constexpr float Z_TOP    =  5.0f;   // body height = 3 squares
+    static constexpr float Z_APEX   =  7.0f;   // nose tip 2 squares above body
+    static constexpr float Z_FIN    =  3.5f;   // fin attachment mid-body
+    static constexpr float Z_EXHST  =  1.5f;   // exhaust tip (just below base)
+    static constexpr float X_CENTER =  4.0f;   // horizontal center (col 4)
+    static constexpr float Y_CENTER = -2.5f;   // depth center (-row 2.5)
 };

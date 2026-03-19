@@ -140,22 +140,25 @@ void VirtualObject::buildFins()
         addLine(cornerMid,  cornerBase, COLOR_FINS, 2);
     };
 
-    // Front-left fin  (Y_FRONT is -1.5, tip goes more negative = further front)
+    // Y_FRONT=-1.5, Y_BACK=-3.5 (negative rows)
+    // Fin tips spread outward in X and Y from each corner
+
+    // Front-left fin  (smaller X, less negative Y = more north)
     addFin(cv::Vec3f(X_LEFT,  Y_FRONT, Z_BASE),
            cv::Vec3f(X_LEFT,  Y_FRONT, Z_FIN),
            cv::Vec3f(X_LEFT  - 0.8f, Y_FRONT + 0.8f, Z_BASE));
 
-    // Front-right fin
+    // Front-right fin (larger X, less negative Y = more north)
     addFin(cv::Vec3f(X_RIGHT, Y_FRONT, Z_BASE),
            cv::Vec3f(X_RIGHT, Y_FRONT, Z_FIN),
            cv::Vec3f(X_RIGHT + 0.8f, Y_FRONT + 0.8f, Z_BASE));
 
-    // Back-left fin  (Y_BACK is -3.5, tip goes more negative = further back)
+    // Back-left fin  (smaller X, more negative Y = more south)
     addFin(cv::Vec3f(X_LEFT,  Y_BACK,  Z_BASE),
            cv::Vec3f(X_LEFT,  Y_BACK,  Z_FIN),
            cv::Vec3f(X_LEFT  - 0.8f, Y_BACK - 0.8f, Z_BASE));
 
-    // Back-right fin
+    // Back-right fin (larger X, more negative Y = more south)
     addFin(cv::Vec3f(X_RIGHT, Y_BACK,  Z_BASE),
            cv::Vec3f(X_RIGHT, Y_BACK,  Z_FIN),
            cv::Vec3f(X_RIGHT + 0.8f, Y_BACK - 0.8f, Z_BASE));
@@ -163,15 +166,13 @@ void VirtualObject::buildFins()
 
 // ----------------------------------------------------------------------------
 // buildExhaust()
-// A downward-pointing triangle centered below the rocket base.
-// Base edge spans the bottom face center, tip points below the board (Z > 0).
-// This gives the rocket a visible exhaust nozzle effect.
+// Simple small downward-pointing triangle below the rocket base.
 // ----------------------------------------------------------------------------
 void VirtualObject::buildExhaust()
 {
-    cv::Vec3f left (X_LEFT  + 0.3f, Y_CENTER, Z_BASE);
-    cv::Vec3f right(X_RIGHT - 0.3f, Y_CENTER, Z_BASE);
-    cv::Vec3f tip  (X_CENTER,        Y_CENTER, Z_EXHST);  // below board
+    cv::Vec3f left  (X_CENTER - 0.3f, Y_CENTER, Z_BASE);
+    cv::Vec3f right (X_CENTER + 0.3f, Y_CENTER, Z_BASE);
+    cv::Vec3f tip   (X_CENTER,        Y_CENTER, Z_EXHST);
 
     addLine(left,  right, COLOR_EXHAUST, 2);
     addLine(left,  tip,   COLOR_EXHAUST, 2);
