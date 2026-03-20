@@ -1,0 +1,349 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{parskip}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+\title{\textbf{Project 4 - Calibration and Augmented Reality} \\
+       CS 5330 - Computer Vision}
+\author{Krushna Sanjay Sharma}
+\date{03/19/2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Project Overview}
+% =============================================================================
+
+This project implements a complete camera calibration and augmented reality pipeline in C++ using OpenCV. The system uses a 9x6 chessboard target to calibrate the camera, recovering the intrinsic matrix and distortion coefficients. Once calibrated, the camera's pose relative to the board is estimated in real time using \texttt{cv::solvePnP}, and virtual 3D objects are rendered onto the live video feed using \texttt{cv::projectPoints}.
+
+The project is organized into five applications. The calibration app collects corner detections across multiple frames and computes camera intrinsics. The augmented reality app projects 3D axes, outer corners, and a wireframe rocket above the chessboard. A feature detector app visualizes SIFT keypoints on a dollar bill. Two extension apps extend the system to work with a dollar bill as an alternate target using SIFT feature matching, and to track both targets simultaneously in the same scene.
+
+Three extensions are implemented: SIFT-based AR on a dollar bill without a chessboard, multi-target AR with both the chessboard and the dollar bill active simultaneously, and a 3D eagle virtual object rendered on the dollar bill alongside the rocket on the chessboard.
+
+\newpage
+
+% =============================================================================
+\section{Video Demonstration}
+% =============================================================================
+
+The following video demonstrates all tasks and extensions in sequence: corner detection and calibration (Tasks 1--3), real-time pose estimation with projected axes and corners (Tasks 4--5), the virtual rocket above the chessboard (Task 6), SIFT feature detection on a dollar bill (Task 7), SIFT-based AR on the dollar bill (Extension 1 and 2), and simultaneous multi-target AR with both the chessboard and dollar bill in frame (Extension 3).
+
+\textbf{Full Project Demo:} \\
+\url{https://drive.google.com/file/d/1sdKhDOSPnT0IuZtkYMO3dxHYmqG1zFjP/view?usp=drive_link}
+
+\newpage
+
+The following extensions were implemented in addition to Tasks 1 through 7.
+
+\textbf{Extension 1 and 2 -- SIFT AR on Dollar Bill (Uber Extension 2 and Alternate Target):}
+The AR system was extended to work with a dollar bill as the target instead of a chessboard. A reference photo of the bill is loaded once and SIFT keypoints are pre-computed. Each live frame is matched against the reference using \texttt{cv::BFMatcher} and Lowe's ratio test. Inlier correspondences are extracted via \texttt{cv::findHomography} with RANSAC, and the pose is estimated with \texttt{cv::solvePnP} using real-world cm coordinates on the bill surface. A 3D wireframe rocket floats above the bill. This covers both Uber Extension 2 (SIFT-based tracking) and the alternate target extension.
+
+\textbf{Extension 3 -- Multiple Targets in the Scene:}
+A dedicated multi-target application runs the chessboard tracker and the SIFT bill tracker simultaneously in every frame. The chessboard renders a rocket and the dollar bill renders a 3D wireframe eagle. Each tracker operates independently and objects appear only when their respective target is detected.
+
+\newpage
+
+% =============================================================================
+\section{Task Results}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Task 1 -- Detect and Extract Target Corners}
+% -----------------------------------------------------------------------------
+
+The chessboard target used throughout the project is a 9x6 internal corner pattern displayed on a tablet screen. The relevant OpenCV functions are \texttt{cv::findChessboardCorners} with \texttt{CALIB\_CB\_ADAPTIVE\_THRESH}, \texttt{CALIB\_CB\_NORMALIZE\_IMAGE}, and \texttt{CALIB\_CB\_FAST\_CHECK} flags, followed by \texttt{cv::cornerSubPix} for sub-pixel refinement.
+
+The chessboard was chosen because it provides 54 precisely located internal corners per frame, giving a well-conditioned equation system for calibration. Its main limitation is that it is a symmetric pattern -- the detector cannot distinguish orientation from the pattern alone, so the first corner can land in any of the four rotational positions depending on the viewing angle. The system handles this consistently by always assigning (0,0,0) to the upper-left corner as viewed in the image.
+
+Challenges encountered during detection include failure at viewing angles beyond approximately 60 degrees from face-on, failure when the board is partially outside the frame, and reduced reliability under uneven or low lighting. Displaying the pattern on a tablet introduces mild screen glare under certain lighting conditions which occasionally causes missed detections.
+
+% -----------------------------------------------------------------------------
+\subsection{Task 2 -- Select Calibration Images}
+% -----------------------------------------------------------------------------
+
+When the user presses \texttt{s}, the most recently detected corner set is saved to a \texttt{corner\_list} and a corresponding \texttt{point\_set} of 3D world coordinates is appended to \texttt{point\_list}. World coordinates follow the convention \texttt{(col, -row, 0)}: X increases rightward along columns, Y decreases downward along rows, and Z is zero for all points on the planar target.
+
+The status overlay shows the number of saved frames and prompts the user to calibrate once five or more frames have been collected.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task2_saving_frames.png}
+        \caption{Frame saved -- counter increments to confirm}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task2_ready_calibrate.png}
+        \caption{Five frames collected -- calibration prompt appears}
+    \end{subfigure}
+    \caption{Task 2: Collecting calibration frames by pressing \texttt{s}.}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\subsection{Task 3 -- Calibrate the Camera}
+% -----------------------------------------------------------------------------
+
+Pressing \texttt{c} after collecting at least five frames runs \texttt{cv::calibrateCamera} with the \texttt{CALIB\_FIX\_ASPECT\_RATIO} flag, which assumes square pixels. The camera matrix and distortion coefficients are printed to the console and saved to \texttt{calibration.xml} via \texttt{cv::FileStorage}.
+
+The camera matrix recovered from calibration is shown below. The results are from 14 calibration frames at image resolution 640x480. The focal lengths \texttt{fx} and \texttt{fy} are equal at 789.98 px, confirming the fixed aspect ratio constraint. The principal point at (301.7, 286.9) is close to the image center of (320, 240) as expected. The reprojection error of 0.139 pixels is well below the 1.0 pixel threshold, indicating a high-quality calibration.
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Image resolution & 640 x 480 px \\
+Calibration frames & 14 \\
+fx = fy & 789.98 px \\
+cx & 301.72 px \\
+cy & 286.91 px \\
+k1 & 0.05925 \\
+k2 & -0.15870 \\
+p1 & 0.00537 \\
+p2 & 0.00327 \\
+k3 & 0.37551 \\
+Reprojection error & 0.139 px (GOOD) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{projects/report_4/images/task3_calibration_corners.png}
+    \caption{Task 3: Calibration image with all 54 internal chessboard corners highlighted. This frame was one of the 14 frames used to compute the camera matrix and distortion coefficients.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.55\textwidth]{projects/report_4/images/task3_calibration_result.png}
+    \caption{Task 3: Calibration complete -- reprojection error and matrix values displayed.}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\subsection{Task 4 -- Calculate Current Position of the Camera}
+% -----------------------------------------------------------------------------
+
+The augmented reality app loads the saved \texttt{calibration.xml} and calls \texttt{cv::solvePnP} with the \texttt{SOLVEPNP\_ITERATIVE} method every frame. The rotation vector \texttt{rvec} and translation vector \texttt{tvec} are printed to the console in real time.
+
+The rotation vector \texttt{rvec} and translation vector \texttt{tvec} are printed to the console in real time. \texttt{tvec} gives the position of the board origin (world coordinate (0,0,0) at the top-left internal corner) expressed in camera space in square units.
+
+The values change as follows when the camera is moved:
+
+\begin{itemize}
+    \item Moving the camera \textbf{right} causes \texttt{tvec[0]} to decrease (become more negative) because the board origin shifts left in the camera frame.
+    \item Moving the camera \textbf{left} causes \texttt{tvec[0]} to increase.
+    \item Moving the camera \textbf{closer} decreases \texttt{tvec[2]} and moving it \textbf{farther away} increases \texttt{tvec[2]}.
+    \item Moving the camera \textbf{up or down} changes \texttt{tvec[1]} correspondingly.
+    \item \textbf{Tilting or rotating} the board changes the direction and magnitude of \texttt{rvec} noticeably. When the board is flat and face-on, \texttt{rvec} is approximately (pi, 0, 0).
+\end{itemize}
+
+These changes are consistent with the expected behavior. \texttt{tvec} represents a displacement in camera coordinates so lateral camera motion directly shifts the corresponding component. \texttt{rvec} encodes the axis and angle of rotation in Rodrigues form, so only orientation changes affect it.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task4_pose_close.png}
+        \caption{Camera close -- small \texttt{tvec[2]}}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task4_pose_far.png}
+        \caption{Camera far -- large \texttt{tvec[2]}}
+    \end{subfigure}
+    \caption{Task 4: \texttt{tvec} and \texttt{rvec} displayed live. Values change predictably as the camera moves.}
+\end{figure}
+
+The values behave as expected. Moving the camera right causes \texttt{tvec[0]} to decrease. Moving the camera closer decreases \texttt{tvec[2]}. Tilting the board significantly changes the magnitude and direction of \texttt{rvec}.
+
+% -----------------------------------------------------------------------------
+\subsection{Task 5 -- Project Outside Corners or 3D Axes}
+% -----------------------------------------------------------------------------
+
+\texttt{cv::projectPoints} is used to project the four outer board corners and three coordinate axes onto the image plane using the pose from Task 4. The four projected corners are labeled by their position on the chessboard: TL (top-left) is the world origin (0,0,0), TR (top-right) is at column 8 row 0, BL (bottom-left) is at column 0 row 5, and BR (bottom-right) is at column 8 row 5. All four are connected by an orange outline forming the board boundary. The labels and outline move and deform correctly with the board as the camera angle changes.
+
+The reprojected points show up in the correct locations. The orange outline tightly hugs the physical edges of the chessboard from all viewing angles, and the TL label consistently lands on the upper-left corner of the board as seen in the image. The axes also remain firmly attached to the board origin and rotate correctly when the board is tilted, confirming that the pose estimate from \texttt{cv::solvePnP} is accurate.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task5_corners.png}
+        \caption{Outer corners -- TL (world origin), TR, BL, BR connected by orange outline}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task5_axes.png}
+        \caption{3D axes -- X blue (right), Y green (away from board), Z red (toward camera)}
+    \end{subfigure}
+    \caption{Task 5: Projected outer corners and coordinate axes. TL marks the board origin at world coordinate (0,0,0). Both overlays stay correctly attached to the board as the camera moves.}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\subsection{Task 6 -- Create a Virtual Object}
+% -----------------------------------------------------------------------------
+
+A 3D wireframe rocket is constructed from line segments defined in world space and projected onto the image each frame using \texttt{cv::projectPoints}. The rocket is centered at column 4, row 2.5 on the chessboard -- roughly the middle of the 9x6 board. It floats above the board with the base at Z = 2 squares and the nose tip at Z = 7 squares above the surface.
+
+The rocket has five distinct parts, each drawn in a different color to satisfy the multi-color requirement and make orientation easy to verify:
+
+\begin{itemize}
+    \item \textbf{Body} (blue) -- a rectangular box from Z = 2 to Z = 5, width 1 square, depth 1 square. Drawn as front face, back face, and four connecting vertical edges forming a 3D wireframe box.
+    \item \textbf{Nose cone} (cyan) -- a four-sided pyramid from the top of the body (Z = 5) converging to a single apex point at the center top (Z = 7). Four lines connect each top body corner to the apex.
+    \item \textbf{Fins} (amber) -- four triangular fins, one at each bottom corner of the body at Z = 2. Each fin spreads outward from the body corner to a tip point, giving the rocket stability and making it clearly asymmetric from different angles.
+    \item \textbf{Exhaust} (red) -- a small downward-pointing triangle below the rocket base, representing the engine nozzle.
+    \item \textbf{Window} (green) -- a small square porthole on the front face of the body at mid-height, with two diagonal cross lines inside.
+\end{itemize}
+
+The rocket is intentionally asymmetric -- the porthole appears only on the front face -- which makes it straightforward to verify correct orientation at any camera angle. Total geometry is 37 line segments projected in a single \texttt{cv::projectPoints} call.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task6_rocket_top.png}
+        \caption{Top-down view}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task6_rocket_side.png}
+        \caption{Side view}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task6_rocket_angle.png}
+        \caption{Angled view}
+    \end{subfigure}
+    \caption{Task 6: 3D wireframe rocket rendered above the chessboard from three different camera angles. The rocket maintains correct orientation in all views.}
+\end{figure}
+
+The rocket is asymmetric by design -- the porthole window appears only on the front face, making it easy to verify correct orientation at any camera angle.
+
+% -----------------------------------------------------------------------------
+\subsection{Task 7 -- Detect Robust Features}
+% -----------------------------------------------------------------------------
+
+A separate application detects SIFT keypoints on a dollar bill in a live video stream. SIFT is used because SURF requires the \texttt{opencv\_contrib} module which is not available in the standard OpenCV build. SIFT keypoints are detected with \texttt{cv::SIFT::create} and drawn with \texttt{cv::drawKeypoints} using the \texttt{DRAW\_RICH\_KEYPOINTS} flag so each keypoint displays its scale as a circle and its orientation as a line through the center.
+
+A trackbar controls the maximum number of features detected. At low counts (around 50) only the strongest, most distinctive features are shown -- primarily at the portrait, serial numbers, and ornamental borders. At high counts the entire textured surface is covered.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task7_sift_50.png}
+        \caption{50 features -- strongest only}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task7_sift_300.png}
+        \caption{300 features -- balanced}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/task7_sift_unlimited.png}
+        \caption{Unlimited -- dense coverage}
+    \end{subfigure}
+    \caption{Task 7: SIFT keypoints on a dollar bill at three trackbar settings. Circle size represents feature scale and the line shows orientation.}
+\end{figure}
+
+SIFT features could serve as the basis for AR without a chessboard through the following approach. First, a reference image of the target object (such as a dollar bill, book cover, or painting) is captured and its SIFT keypoints and 128-dimensional descriptors are computed once. In the live video stream, SIFT keypoints are detected each frame and their descriptors are matched against the reference using a nearest-neighbor matcher with Lowe's ratio test to filter ambiguous matches. The surviving matches provide 2D-to-2D correspondences between the reference image and the live frame. Since the physical dimensions of the reference object are known, these 2D reference positions can be mapped to 3D world coordinates on the object surface (treating it as a flat plane at Z=0). The resulting 3D-to-2D point pairs are then passed to \texttt{cv::solvePnP} to estimate the pose, and \texttt{cv::projectPoints} renders the virtual object. This is exactly the pipeline implemented in the SIFT AR extension, where the dollar bill replaces the chessboard as the tracking target.
+
+\newpage
+
+% =============================================================================
+\section{Extensions}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Extension 1 and 2 -- SIFT AR on Dollar Bill}
+% -----------------------------------------------------------------------------
+
+This extension implements Uber Extension 2 (AR with SIFT feature points) and the alternate target extension simultaneously. A dollar bill replaces the chessboard as the AR target. The same \texttt{calibration.xml} from Task 3 is used for intrinsics.
+
+A flat reference photo of the bill is loaded once. SIFT keypoints and descriptors are computed on the reference with CLAHE contrast enhancement applied first to improve detection in darker regions. Each live frame is matched against the reference using \texttt{cv::BFMatcher} with Lowe's ratio test at 0.75. Outlier matches are removed with \texttt{cv::findHomography} RANSAC. The surviving inlier pairs map 2D reference pixels to 3D world coordinates on the bill surface (in cm: bill is 15.6 cm wide x 6.6 cm tall) and are passed to \texttt{cv::solvePnP}. An exponential moving average (alpha = 0.35) smooths the pose between frames.
+
+The 3D rocket floats above the center of the bill with scale adjusted to cm units. The world convention for the bill uses positive Y downward (standard OpenCV), which differs from the chessboard convention.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/ext1_sift_tracking.png}
+        \caption{SIFT inliers overlaid on the bill}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/ext1_rocket_on_bill.png}
+        \caption{Rocket rendered above the dollar bill}
+    \end{subfigure}
+    \caption{Extension 1 and 2: SIFT-based AR on a dollar bill. Inlier count shown top-left; pose is accepted when at least 8 inliers are detected.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.55\textwidth]{projects/report_4/images/ext1_rocket_angle.png}
+    \caption{Extension 1 and 2: Rocket correctly oriented on the bill at a slant angle.}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\subsection{Extension 3 -- Multiple Targets in the Scene}
+% -----------------------------------------------------------------------------
+
+The \texttt{multiTargetAR} application runs two independent trackers in the same video loop: \texttt{PoseEstimator} for the chessboard and \texttt{SIFTTracker} for the dollar bill. Each frame, both trackers attempt to locate their target. The chessboard renders the wireframe rocket and the dollar bill renders a wireframe eagle. The two objects appear simultaneously when both targets are visible.
+
+The 3D eagle is built from line segments defining four parts, each in a distinct color. The \textbf{body} (blue) is a diamond-shaped wireframe box with front and back faces connected by edges, centered on the bill. The \textbf{head} (dark blue) is a hexagonal cross-section sitting above the body with an amber beak pointing to the right as a V-shape. The \textbf{wings} (light blue) spread wide on both sides with a wing rib line, giving a wingspan of approximately 7 cm which fits within the bill without covering it. The \textbf{tail feathers} (amber) are three lines fanning downward from the body base. The eagle floats 2 cm above the bill surface. It is a separate class \texttt{VirtualEagleObject} independent of \texttt{VirtualObject}.
+
+Status lines at the top of the frame indicate independently whether each target is tracked. If only the chessboard is visible, only the rocket appears; if only the bill is visible, only the eagle appears.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/ext3_both_tracked.png}
+        \caption{Both targets tracked simultaneously}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\textwidth]{projects/report_4/images/ext3_chess_only.png}
+        \caption{Only chessboard in view -- eagle absent}
+    \end{subfigure}
+    \caption{Extension 3: Multi-target AR. Rocket on chessboard (left), eagle on dollar bill (right), both independent.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{projects/report_4/images/ext3_eagle_closeup.png}
+    \caption{Extension 3: Eagle object on the dollar bill. Four colors distinguish body, head, wings, and tail.}
+\end{figure}
+
+\newpage
+
+% =============================================================================
+\section{Reflection}
+% =============================================================================
+
+The most practically important lesson from this project was that calibration quality determines everything downstream. A reprojection error above one pixel noticeably degrades the pose estimate and causes the virtual objects to wobble or drift. Collecting calibration frames at diverse angles and distances, rather than keeping the board at one distance, reduced the error significantly.
+
+The coordinate convention required careful attention throughout. The choice of \texttt{(col, -row, 0)} for chessboard world points means positive Z points toward the viewer, which is the opposite of the standard OpenCV camera convention. Inconsistencies here caused the rocket to appear upside down and the Z axis to point into the board before the sign was corrected.
+
+Extending to SIFT-based tracking on the dollar bill demonstrated how different the two approaches are in practice. The chessboard gives dense, precise corner correspondences that produce stable pose from a single frame. SIFT matching on a textured surface gives fewer, noisier correspondences and requires RANSAC filtering plus temporal smoothing to produce usable results. The bill's rich engraving and portrait details provide good features, but performance degrades sharply at steep angles beyond roughly 45 degrees.
+
+% =============================================================================
+\section{Acknowledgments}
+% =============================================================================
+
+\begin{itemize}
+    \item Prof. Bruce Maxwell -- project specification and task descriptions
+    \item OpenCV documentation -- \texttt{cv::findChessboardCorners}, \texttt{cv::calibrateCamera}, \texttt{cv::solvePnP}, \texttt{cv::projectPoints}, \texttt{cv::SIFT}, \texttt{cv::findHomography}
+    \item OpenCV Tutorial: Camera Calibration with OpenCV, original author Bernat Gabor (\url{https://docs.opencv.org/4.x/d4/d94/tutorial_camera_calibration.html}) -- calibration pipeline structure referenced and modified
+\end{itemize}
+
+\end{document}
+
