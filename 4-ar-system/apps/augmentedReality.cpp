@@ -1,21 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
-// augmentedReality.cpp - Augmented Reality Application Entry Point
-// Author:      Krushna Sanjay Sharma
-// Description: Main application for Tasks 4-6.
-//   Task 4 - solvePnP: compute and print real-time rotation/translation
-//   Task 5 - projectPoints: overlay outer corners and 3D axes on the board
-//   Task 6 - VirtualObject: render a 3D rocket floating above the board
-//
-// Usage:
-//   augmentedReality.exe [calibrationFile] [cameraId]
-//
-// Controls:
-//   SPACE   - cycle Task 5 display mode (corners / axes / both)
-//   'r'     - toggle rocket visibility (Task 6)
-//   'q'/ESC - quit
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * augmentedReality.cpp - Augmented Reality Application Entry Point
+ * Author:      Krushna Sanjay Sharma
+ * Description: Main application for Tasks 4-6.
+ *   Task 4 - solvePnP: compute and print real-time rotation/translation
+ *   Task 5 - projectPoints: overlay outer corners and 3D axes on the board
+ *   Task 6 - VirtualObject: render a 3D rocket floating above the board
+ *
+ * Usage:
+ *   augmentedReality.exe [calibrationFile] [cameraId]
+ *
+ * Controls:
+ *   SPACE   - cycle Task 5 display mode (corners / axes / both)
+ *   'r'     - toggle rocket visibility (Task 6)
+ *   'q'/ESC - quit
+ *
+ * Date: March 2026
+ */
 
 #include "PoseEstimator.h"
 #include "VirtualObject.h"
@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
     std::cout << " Augmented Reality App (Tasks 4-6)\n";
     std::cout << "========================================\n\n";
 
-    // ── Resolve calibration file path relative to the executable ─────────────
+    /* Resolve calibration file path relative to the executable */
     std::filesystem::path exeDir =
         std::filesystem::path(argv[0]).parent_path();
 
@@ -48,11 +48,11 @@ int main(int argc, char* argv[])
     std::cout << "Calibration file : " << calibFile << "\n";
     std::cout << "Camera ID        : " << cameraId  << "\n\n";
 
-    // ── Build the rocket once ─────────────────────────────────────────────────
+    /* Build the rocket once */
     VirtualObject rocket;
     rocket.buildRocket();
 
-    // ── Set up the pose estimator ─────────────────────────────────────────────
+    /* Set up the pose estimator */
     PoseEstimator estimator(calibFile, cameraId);
 
     if (!estimator.loadCalibration())
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
         cap >> frame;
         if (frame.empty()) break;
 
-        // ── Tasks 4 + 5: detect, solve pose, draw axes/corners ───────────────
+        /* Tasks 4 + 5: detect, solve pose, draw axes/corners */
         std::vector<cv::Point2f> corners;
         bool found = estimator.detectCorners(frame, corners);
 
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
                 estimator.getDisplayMode() == PoseEstimator::DisplayMode::CORNERS_AXES)
                 estimator.projectAxes(frame);
 
-            // ── Task 6: draw the rocket ───────────────────────────────────────
+            /* Task 6: draw the rocket */
             if (showRocket)
                 rocket.draw(frame,
                             estimator.getRvec(),

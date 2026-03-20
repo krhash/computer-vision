@@ -1,25 +1,23 @@
-////////////////////////////////////////////////////////////////////////////////
-// CameraCalibration.cpp - Camera Calibration Class Implementation
-// Author:      Krushna Sanjay Sharma
-// Description: Implements the CameraCalibration class. Handles live video
-//              corner detection, frame collection, camera calibration, and
-//              saving intrinsic parameters to XML.
-//
-// Modified from:
-//   OpenCV Tutorial - Camera calibration With OpenCV
-//   Original Author: Bernát Gábor
-//   Source: https://docs.opencv.org/4.x/d4/d94/tutorial_camera_calibration.html
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * CameraCalibration.cpp - Camera Calibration Class Implementation
+ * Author:      Krushna Sanjay Sharma
+ * Description: Implements the CameraCalibration class. Handles live video
+ *              corner detection, frame collection, camera calibration, and
+ *              saving intrinsic parameters to XML.
+ *
+ * Modified from:
+ *   OpenCV Tutorial - Camera calibration With OpenCV
+ *   Original Author: Bernát Gábor
+ *   Source: https://docs.opencv.org/4.x/d4/d94/tutorial_camera_calibration.html
+ *
+ * Date: March 2026
+ */
 
 #include "CameraCalibration.h"
 #include <iostream>
 #include <iomanip>
 
-// ----------------------------------------------------------------------------
-// Constructor
-// ----------------------------------------------------------------------------
+/* Constructor */
 CameraCalibration::CameraCalibration(int cameraId, const std::string& outputFile)
     : m_cameraId(cameraId)
     , m_outputFile(outputFile)
@@ -36,9 +34,7 @@ CameraCalibration::CameraCalibration(int cameraId, const std::string& outputFile
     m_distCoeffs = cv::Mat::zeros(5, 1, CV_64F);
 }
 
-// ----------------------------------------------------------------------------
-// run() - Main video loop
-// ----------------------------------------------------------------------------
+/* run() - Main video loop */
 bool CameraCalibration::run()
 {
     // Open the webcam
@@ -72,8 +68,8 @@ bool CameraCalibration::run()
             break;
         }
 
-        // Record image size from the first valid frame.
-        // cv::calibrateCamera requires a consistent image size.
+        /* Record image size from the first valid frame.
+         * cv::calibrateCamera requires a consistent image size. */
         if (imageSize.empty())
         {
             imageSize = frame.size();
@@ -84,7 +80,7 @@ bool CameraCalibration::run()
             m_cameraMatrix.at<double>(1, 2) = imageSize.height / 2.0;
         }
 
-        // ── Task 1: Detect and draw chessboard corners ────────────────────────
+        /* Task 1: Detect and draw chessboard corners */
         std::vector<cv::Point2f> corners;
         bool found = detectCorners(frame, corners);
 
@@ -93,7 +89,7 @@ bool CameraCalibration::run()
 
         cv::imshow("Camera Calibration", frame);
 
-        // ── Keyboard controls ─────────────────────────────────────────────────
+        /* Keyboard controls */
         char key = static_cast<char>(cv::waitKey(30));
 
         if (key == 'q' || key == 27) // 27 = ESC
@@ -102,7 +98,7 @@ bool CameraCalibration::run()
             break;
         }
 
-        // ── Task 2: Save frame for calibration ───────────────────────────────
+        /* Task 2: Save frame for calibration */
         if (key == 's')
         {
             if (found)
@@ -121,7 +117,7 @@ bool CameraCalibration::run()
             }
         }
 
-        // ── Task 3: Run calibration ───────────────────────────────────────────
+        /* Task 3: Run calibration */
         if (key == 'c')
         {
             int n = static_cast<int>(m_cornerList.size());
@@ -153,12 +149,10 @@ bool CameraCalibration::run()
     return m_calibrated;
 }
 
-// ----------------------------------------------------------------------------
-// detectCorners() - Task 1
-// Finds internal chessboard corners in the given frame.
-// Uses cornerSubPix to refine corner positions to sub-pixel accuracy.
-// Draws corners on the frame for visual feedback.
-// ----------------------------------------------------------------------------
+/* detectCorners() - Task 1
+ * Finds internal chessboard corners in the given frame.
+ * Uses cornerSubPix to refine corner positions to sub-pixel accuracy.
+ * Draws corners on the frame for visual feedback. */
 bool CameraCalibration::detectCorners(const cv::Mat& frame,
                                        std::vector<cv::Point2f>& corners)
 {
@@ -166,10 +160,10 @@ bool CameraCalibration::detectCorners(const cv::Mat& frame,
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-    // Flags recommended by the OpenCV tutorial for reliable detection:
-    //   CALIB_CB_ADAPTIVE_THRESH - adapts threshold for uneven lighting
-    //   CALIB_CB_NORMALIZE_IMAGE - normalizes image before thresholding
-    //   CALIB_CB_FAST_CHECK      - quick rejection of frames without a board
+    /* Flags recommended by the OpenCV tutorial for reliable detection:
+     *   CALIB_CB_ADAPTIVE_THRESH - adapts threshold for uneven lighting
+     *   CALIB_CB_NORMALIZE_IMAGE - normalizes image before thresholding
+     *   CALIB_CB_FAST_CHECK      - quick rejection of frames without a board */
     int flags = cv::CALIB_CB_ADAPTIVE_THRESH
               | cv::CALIB_CB_NORMALIZE_IMAGE
               | cv::CALIB_CB_FAST_CHECK;
@@ -207,38 +201,34 @@ bool CameraCalibration::detectCorners(const cv::Mat& frame,
     return found;
 }
 
-// ----------------------------------------------------------------------------
-// saveFrame() - Task 2
-// Saves the detected 2D corners and the corresponding 3D world points.
-// ----------------------------------------------------------------------------
+/* saveFrame() - Task 2
+ * Saves the detected 2D corners and the corresponding 3D world points. */
 void CameraCalibration::saveFrame(const std::vector<cv::Point2f>& corners)
 {
     // Store the 2D image corners for this frame
     m_cornerList.push_back(corners);
 
-    // Build and store the 3D world point set for this frame.
-    // The world coordinates are always the same regardless of board orientation.
+    /* Build and store the 3D world point set for this frame.
+     * The world coordinates are always the same regardless of board orientation. */
     std::vector<cv::Vec3f> pointSet;
     buildWorldPoints(pointSet);
     m_pointList.push_back(pointSet);
 }
 
-// ----------------------------------------------------------------------------
-// buildWorldPoints()
-// Creates 3D world coordinates for all internal chessboard corners.
-//
-// Convention (per assignment description):
-//   - Squares treated as 1x1 units
-//   - (0,0,0) at upper-left internal corner
-//   - X increases rightward along columns
-//   - Y increases downward along rows  (positive Y = down)
-//   - Z negative = toward the viewer   (per assignment: "first point on next
-//     row is (0,-1,0) if Z-axis comes towards the viewer" — meaning +Y is down)
-//   - Z = 0 for all points (planar target)
-//
-// This results in: (0,0,0), (1,0,0), ..., (8,0,0),
-//                  (0,1,0), (1,1,0), ..., (8,1,0), ...
-// ----------------------------------------------------------------------------
+/* buildWorldPoints()
+ * Creates 3D world coordinates for all internal chessboard corners.
+ *
+ * Convention (per assignment description):
+ *   - Squares treated as 1x1 units
+ *   - (0,0,0) at upper-left internal corner
+ *   - X increases rightward along columns
+ *   - Y increases downward along rows  (positive Y = down)
+ *   - Z negative = toward the viewer   (per assignment: "first point on next
+ *     row is (0,-1,0) if Z-axis comes towards the viewer" — meaning +Y is down)
+ *   - Z = 0 for all points (planar target)
+ *
+ * This results in: (0,0,0), (1,0,0), ..., (8,0,0),
+ *                  (0,1,0), (1,1,0), ..., (8,1,0), ... */
 void CameraCalibration::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
 {
     pointSet.clear();
@@ -258,25 +248,23 @@ void CameraCalibration::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
     }
 }
 
-// ----------------------------------------------------------------------------
-// calibrate() - Task 3
-// Runs cv::calibrateCamera with all collected frames.
-// Fills m_cameraMatrix, m_distCoeffs, m_reprojError.
-// ----------------------------------------------------------------------------
+/* calibrate() - Task 3
+ * Runs cv::calibrateCamera with all collected frames.
+ * Fills m_cameraMatrix, m_distCoeffs, m_reprojError. */
 bool CameraCalibration::calibrate(const cv::Size& imageSize)
 {
-    // These will hold per-frame rotation and translation vectors.
-    // rvecs[i] and tvecs[i] describe the board pose for calibration frame i.
+    /* These will hold per-frame rotation and translation vectors.
+     * rvecs[i] and tvecs[i] describe the board pose for calibration frame i. */
     std::vector<cv::Mat> rvecs, tvecs;
 
-    // Use CALIB_FIX_ASPECT_RATIO to assume square pixels (fx = fy).
-    // This is appropriate for modern cameras as noted in the OpenCV tutorial.
+    /* Use CALIB_FIX_ASPECT_RATIO to assume square pixels (fx = fy).
+     * This is appropriate for modern cameras as noted in the OpenCV tutorial. */
     int calibFlags = cv::CALIB_FIX_ASPECT_RATIO;
 
     try
     {
-        // cv::calibrateCamera returns the RMS re-projection error.
-        // A value < 1.0 pixel indicates a good calibration.
+        /* cv::calibrateCamera returns the RMS re-projection error.
+         * A value < 1.0 pixel indicates a good calibration. */
         m_reprojError = cv::calibrateCamera(
             m_pointList,    // 3D world points (same set repeated per frame)
             m_cornerList,   // 2D image points collected from each frame
@@ -304,15 +292,13 @@ bool CameraCalibration::calibrate(const cv::Size& imageSize)
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// saveCalibration() - Task 3
-// Writes intrinsic parameters to an XML file using cv::FileStorage.
-// The output file is read by the augmentedReality app (Tasks 4-6).
-// ----------------------------------------------------------------------------
+/* saveCalibration() - Task 3
+ * Writes intrinsic parameters to an XML file using cv::FileStorage.
+ * The output file is read by the augmentedReality app (Tasks 4-6). */
 void CameraCalibration::saveCalibration(const cv::Size& imageSize) const
 {
-    // Directory is guaranteed to exist — created by CMake at configure time
-    // via file(MAKE_DIRECTORY) in CMakeLists.txt. No runtime dir creation needed.
+    /* Directory is guaranteed to exist — created by CMake at configure time
+     * via file(MAKE_DIRECTORY) in CMakeLists.txt. No runtime dir creation needed. */
     cv::FileStorage fs(m_outputFile, cv::FileStorage::WRITE);
     if (!fs.isOpened())
     {
@@ -337,10 +323,8 @@ void CameraCalibration::saveCalibration(const cv::Size& imageSize) const
     std::cout << "[INFO] Calibration saved to: " << m_outputFile << "\n";
 }
 
-// ----------------------------------------------------------------------------
-// printCalibrationResults() - Task 3
-// Prints camera matrix, distortion coefficients, and reprojection error.
-// ----------------------------------------------------------------------------
+/* printCalibrationResults() - Task 3
+ * Prints camera matrix, distortion coefficients, and reprojection error. */
 void CameraCalibration::printCalibrationResults() const
 {
     std::cout << "\n========================================\n";
@@ -376,10 +360,8 @@ void CameraCalibration::printCalibrationResults() const
     std::cout << "========================================\n\n";
 }
 
-// ----------------------------------------------------------------------------
-// printStatus()
-// Overlays frame count, corner detection status, and key hints onto the frame.
-// ----------------------------------------------------------------------------
+/* printStatus()
+ * Overlays frame count, corner detection status, and key hints onto the frame. */
 void CameraCalibration::printStatus(cv::Mat& frame,
                                      bool cornersFound,
                                      int savedFrames) const

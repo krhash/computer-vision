@@ -1,24 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
-// PoseEstimator.cpp - Pose Estimator Class Implementation
-// Author:      Krushna Sanjay Sharma
-// Description: Implements pose estimation using cv::solvePnP and projects
-//              outer board corners and 3D axes onto the image using
-//              cv::projectPoints for real-time AR visualization.
-//
-// Reference:
-//   OpenCV Documentation - solvePnP
-//   https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html#ga549c2075fac14829ff4a58bc931c033d
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * PoseEstimator.cpp - Pose Estimator Class Implementation
+ * Author:      Krushna Sanjay Sharma
+ * Description: Implements pose estimation using cv::solvePnP and projects
+ *              outer board corners and 3D axes onto the image using
+ *              cv::projectPoints for real-time AR visualization.
+ *
+ * Reference:
+ *   OpenCV Documentation - solvePnP
+ *   https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html#ga549c2075fac14829ff4a58bc931c033d
+ *
+ * Date: March 2026
+ */
 
 #include "PoseEstimator.h"
 #include <iostream>
 #include <iomanip>
 
-// ----------------------------------------------------------------------------
-// Constructor
-// ----------------------------------------------------------------------------
+/* Constructor */
 PoseEstimator::PoseEstimator(const std::string& calibrationFile, int cameraId)
     : m_calibrationFile(calibrationFile)
     , m_cameraId(cameraId)
@@ -26,18 +24,16 @@ PoseEstimator::PoseEstimator(const std::string& calibrationFile, int cameraId)
     , m_poseValid(false)
     , m_boardSize(BOARD_WIDTH, BOARD_HEIGHT)
 {
-    // Initialize rvec and tvec as empty 3x1 double matrices.
-    // solvePnP will fill these each frame.
+    /* Initialize rvec and tvec as empty 3x1 double matrices.
+     * solvePnP will fill these each frame. */
     m_rvec = cv::Mat::zeros(3, 1, CV_64F);
     m_tvec = cv::Mat::zeros(3, 1, CV_64F);
 }
 
-// ----------------------------------------------------------------------------
-// run() - Main video loop for Task 4
-// ----------------------------------------------------------------------------
+/* run() - Main video loop for Task 4 */
 bool PoseEstimator::run()
 {
-    // ── Load calibration from XML ─────────────────────────────────────────────
+    /* Load calibration from XML */
     if (!loadCalibration())
     {
         std::cerr << "[ERROR] Failed to load calibration. "
@@ -45,7 +41,7 @@ bool PoseEstimator::run()
         return false;
     }
 
-    // ── Open webcam ───────────────────────────────────────────────────────────
+    /* Open webcam */
     cv::VideoCapture cap(m_cameraId);
     if (!cap.isOpened())
     {
@@ -122,10 +118,8 @@ bool PoseEstimator::run()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// loadCalibration()
-// Reads camera_matrix and distortion_coefficients from the calibration XML.
-// ----------------------------------------------------------------------------
+/* loadCalibration()
+ * Reads camera_matrix and distortion_coefficients from the calibration XML. */
 bool PoseEstimator::loadCalibration()
 {
     cv::FileStorage fs(m_calibrationFile, cv::FileStorage::READ);
@@ -155,10 +149,8 @@ bool PoseEstimator::loadCalibration()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// detectCorners()
-// Finds and refines chessboard corners. Reuses the same approach as Task 1.
-// ----------------------------------------------------------------------------
+/* detectCorners()
+ * Finds and refines chessboard corners. Reuses the same approach as Task 1. */
 bool PoseEstimator::detectCorners(const cv::Mat& frame,
                                    std::vector<cv::Point2f>& corners)
 {
@@ -186,12 +178,10 @@ bool PoseEstimator::detectCorners(const cv::Mat& frame,
     return found;
 }
 
-// ----------------------------------------------------------------------------
-// buildWorldPoints()
-// Fixed 3D world coordinates for all internal chessboard corners.
-// Convention: (col, -row, 0)
-//   +Y away from board (north), -Y down along rows, +Z toward camera.
-// ----------------------------------------------------------------------------
+/* buildWorldPoints()
+ * Fixed 3D world coordinates for all internal chessboard corners.
+ * Convention: (col, -row, 0)
+ *   +Y away from board (north), -Y down along rows, +Z toward camera. */
 void PoseEstimator::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
 {
     pointSet.clear();
@@ -206,28 +196,26 @@ void PoseEstimator::buildWorldPoints(std::vector<cv::Vec3f>& pointSet) const
             );
 }
 
-// ----------------------------------------------------------------------------
-// estimatePose() - Core of Task 4
-//
-// cv::solvePnP parameters:
-//   objectPoints  : 3D world coords of board corners (Vec3f vector)
-//   imagePoints   : detected 2D corner positions     (Point2f vector)
-//   cameraMatrix  : 3x3 intrinsic matrix from calibration
-//   distCoeffs    : distortion coefficients from calibration
-//   rvec          : OUTPUT rotation vector (Rodrigues, 3x1)
-//   tvec          : OUTPUT translation vector (3x1, in world units = squares)
-//   useExtrinsicGuess : false — compute from scratch each frame
-//   flags         : SOLVEPNP_ITERATIVE — Levenberg-Marquardt, best for planar
-//
-// What the outputs mean (Task 4 requirement):
-//   rvec: axis-angle rotation. ||rvec|| = angle in radians.
-//         Rotating the board changes rvec direction.
-//   tvec: position of the world origin (0,0,0 = upper-left board corner)
-//         expressed in camera coordinates (in square units).
-//         tvec[2] ~ distance from camera to board.
-//         Move camera right → tvec[0] becomes more negative.
-//         Move camera closer → tvec[2] decreases.
-// ----------------------------------------------------------------------------
+/* estimatePose() - Core of Task 4
+ *
+ * cv::solvePnP parameters:
+ *   objectPoints  : 3D world coords of board corners (Vec3f vector)
+ *   imagePoints   : detected 2D corner positions     (Point2f vector)
+ *   cameraMatrix  : 3x3 intrinsic matrix from calibration
+ *   distCoeffs    : distortion coefficients from calibration
+ *   rvec          : OUTPUT rotation vector (Rodrigues, 3x1)
+ *   tvec          : OUTPUT translation vector (3x1, in world units = squares)
+ *   useExtrinsicGuess : false — compute from scratch each frame
+ *   flags         : SOLVEPNP_ITERATIVE — Levenberg-Marquardt, best for planar
+ *
+ * What the outputs mean (Task 4 requirement):
+ *   rvec: axis-angle rotation. ||rvec|| = angle in radians.
+ *         Rotating the board changes rvec direction.
+ *   tvec: position of the world origin (0,0,0 = upper-left board corner)
+ *         expressed in camera coordinates (in square units).
+ *         tvec[2] ~ distance from camera to board.
+ *         Move camera right → tvec[0] becomes more negative.
+ *         Move camera closer → tvec[2] decreases. */
 bool PoseEstimator::estimatePose(const std::vector<cv::Point2f>& corners)
 {
     std::vector<cv::Vec3f> worldPoints;
@@ -257,18 +245,16 @@ bool PoseEstimator::estimatePose(const std::vector<cv::Point2f>& corners)
     }
 }
 
-// ----------------------------------------------------------------------------
-// printPose()
-// Prints rvec and tvec to console. Required by Task 4 to verify values
-// change correctly as the camera or board is moved.
-//
-// Expected behaviour to verify:
-//   Move camera LEFT  → tvec[0] increases  (board origin moves right in cam)
-//   Move camera RIGHT → tvec[0] decreases
-//   Move camera CLOSER→ tvec[2] decreases
-//   Move camera AWAY  → tvec[2] increases
-//   Tilt board        → rvec direction changes noticeably
-// ----------------------------------------------------------------------------
+/* printPose()
+ * Prints rvec and tvec to console. Required by Task 4 to verify values
+ * change correctly as the camera or board is moved.
+ *
+ * Expected behaviour to verify:
+ *   Move camera LEFT  → tvec[0] increases  (board origin moves right in cam)
+ *   Move camera RIGHT → tvec[0] decreases
+ *   Move camera CLOSER→ tvec[2] decreases
+ *   Move camera AWAY  → tvec[2] increases
+ *   Tilt board        → rvec direction changes noticeably */
 void PoseEstimator::printPose() const
 {
     std::cout << std::fixed << std::setprecision(4);
@@ -283,33 +269,31 @@ void PoseEstimator::printPose() const
               << m_tvec.at<double>(2) << "]\n";
 }
 
-// ----------------------------------------------------------------------------
-// projectOuterCorners() - Task 5a
-//
-// Projects the 4 outer corners of the chessboard grid onto the image plane.
-//
-// cv::projectPoints transformation chain (per OpenCV docs):
-//   World coords → Camera coords (rvec/tvec) → Normalized coords
-//   → Distortion applied → Pixel coords (cameraMatrix)
-//
-// Full signature:
-//   void cv::projectPoints(
-//       InputArray  objectPoints,        // 3D world points (Vec3f, Nx3)
-//       InputArray  rvec,                // rotation vector from solvePnP
-//       InputArray  tvec,                // translation vector from solvePnP
-//       InputArray  cameraMatrix,        // 3x3 intrinsic matrix
-//       InputArray  distCoeffs,          // distortion coefficients
-//       OutputArray imagePoints,         // OUTPUT: 2D pixel positions (Point2f)
-//       OutputArray jacobian=noArray(),  // optional — not needed for rendering
-//       double      aspectRatio=0        // optional — 0 = no constraint
-//   )
-//
-// The 4 outer corners in world coordinates (square units, Z=0):
-//   Top-left     : (0,  0,  0)
-//   Top-right    : (8,  0,  0)   — last col internal corner index
-//   Bottom-left  : (0, -5,  0)   — last row internal corner index (negative)
-//   Bottom-right : (8, -5,  0)
-// ----------------------------------------------------------------------------
+/* projectOuterCorners() - Task 5a
+ *
+ * Projects the 4 outer corners of the chessboard grid onto the image plane.
+ *
+ * cv::projectPoints transformation chain (per OpenCV docs):
+ *   World coords → Camera coords (rvec/tvec) → Normalized coords
+ *   → Distortion applied → Pixel coords (cameraMatrix)
+ *
+ * Full signature:
+ *   void cv::projectPoints(
+ *       InputArray  objectPoints,        // 3D world points (Vec3f, Nx3)
+ *       InputArray  rvec,                // rotation vector from solvePnP
+ *       InputArray  tvec,                // translation vector from solvePnP
+ *       InputArray  cameraMatrix,        // 3x3 intrinsic matrix
+ *       InputArray  distCoeffs,          // distortion coefficients
+ *       OutputArray imagePoints,         // OUTPUT: 2D pixel positions (Point2f)
+ *       OutputArray jacobian=noArray(),  // optional — not needed for rendering
+ *       double      aspectRatio=0        // optional — 0 = no constraint
+ *   )
+ *
+ * The 4 outer corners in world coordinates (square units, Z=0):
+ *   Top-left     : (0,  0,  0)
+ *   Top-right    : (8,  0,  0)   — last col internal corner index
+ *   Bottom-left  : (0, -5,  0)   — last row internal corner index (negative)
+ *   Bottom-right : (8, -5,  0) */
 void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
 {
     if (!m_poseValid) return;
@@ -322,8 +306,8 @@ void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
         { 8.0f, -5.0f, 0.0f }    // bottom-right (8, -5)
     };
 
-    // Project 3D world corners → 2D image pixel positions.
-    // Jacobian omitted (cv::noArray()) — only needed for optimization, not rendering.
+    /* Project 3D world corners → 2D image pixel positions.
+     * Jacobian omitted (cv::noArray()) — only needed for optimization, not rendering. */
     std::vector<cv::Point2f> projected;
     cv::projectPoints(
         corners3D,          // 3D object points in world space  (Vec3f vector)
@@ -374,30 +358,28 @@ void PoseEstimator::projectOuterCorners(cv::Mat& frame) const
     drawLine(projected[2], projected[0]);   // BL → TL
 }
 
-// ----------------------------------------------------------------------------
-// projectAxes() - Task 5b
-//
-// Projects 3D coordinate axes from the board origin onto the image using
-// cv::projectPoints. These axes also serve as the anchor frame for Task 6.
-//
-// Axis endpoints in world coordinates (length = 3 squares):
-//   Origin : (0, 0,  0)  — top-left internal corner of chessboard
-//   X tip  : (3, 0,  0)  drawn in BLUE
-//   Y tip  : (0, 3,  0)  drawn in GREEN  (positive Y = downward in our convention)
-//   Z tip  : (0, 0, -3)  drawn in RED    (negative Z = toward viewer/camera)
-//
-// The Z axis pointing toward the viewer (negative Z) means a virtual object
-// placed at Z < 0 will float above the board toward the camera — which is
-// exactly what Task 6 requires.
-// ----------------------------------------------------------------------------
+/* projectAxes() - Task 5b
+ *
+ * Projects 3D coordinate axes from the board origin onto the image using
+ * cv::projectPoints. These axes also serve as the anchor frame for Task 6.
+ *
+ * Axis endpoints in world coordinates (length = 3 squares):
+ *   Origin : (0, 0,  0)  — top-left internal corner of chessboard
+ *   X tip  : (3, 0,  0)  drawn in BLUE
+ *   Y tip  : (0, 3,  0)  drawn in GREEN  (positive Y = downward in our convention)
+ *   Z tip  : (0, 0, -3)  drawn in RED    (negative Z = toward viewer/camera)
+ *
+ * The Z axis pointing toward the viewer (negative Z) means a virtual object
+ * placed at Z < 0 will float above the board toward the camera — which is
+ * exactly what Task 6 requires. */
 void PoseEstimator::projectAxes(cv::Mat& frame) const
 {
     if (!m_poseValid) return;
 
-    // Axis tips in world space. Convention: (col, -row, 0)
-    //   +X = right along columns
-    //   +Y = away from board (north) — because Y = -row
-    //   +Z = toward camera           — because Z positive = toward viewer
+    /* Axis tips in world space. Convention: (col, -row, 0)
+     *   +X = right along columns
+     *   +Y = away from board (north) — because Y = -row
+     *   +Z = toward camera           — because Z positive = toward viewer */
     std::vector<cv::Vec3f> axisPoints = {
         { 0.0f,  0.0f,  0.0f },   // [0] origin
         { 3.0f,  0.0f,  0.0f },   // [1] X tip — right along columns
@@ -405,8 +387,8 @@ void PoseEstimator::projectAxes(cv::Mat& frame) const
         { 0.0f,  0.0f,  3.0f }    // [3] Z tip — toward camera   (+Z)
     };
 
-    // Project all 4 points in one call — more efficient than calling per-axis.
-    // Jacobian omitted as it is only needed for optimization, not drawing.
+    /* Project all 4 points in one call — more efficient than calling per-axis.
+     * Jacobian omitted as it is only needed for optimization, not drawing. */
     std::vector<cv::Point2f> projected;
     cv::projectPoints(
         axisPoints,         // 3D world points  (Vec3f vector, Nx3 format)
@@ -428,9 +410,9 @@ void PoseEstimator::projectAxes(cv::Mat& frame) const
     // Only draw if the origin itself is on screen
     if (!imgBounds.contains(origin)) return;
 
-    // Draw axes as thick arrowed lines.
-    // OpenCV BGR color order: X=Blue, Y=Green, Z=Red
-    // arrowedLine params: img, pt1, pt2, color, thickness, lineType, shift, tipLength
+    /* Draw axes as thick arrowed lines.
+     * OpenCV BGR color order: X=Blue, Y=Green, Z=Red
+     * arrowedLine params: img, pt1, pt2, color, thickness, lineType, shift, tipLength */
     if (imgBounds.contains(xTip))
         cv::arrowedLine(frame, origin, xTip, cv::Scalar(255, 0,   0  ), 3, 8, 0, 0.2);
     if (imgBounds.contains(yTip))
@@ -453,10 +435,8 @@ void PoseEstimator::projectAxes(cv::Mat& frame) const
     cv::circle(frame, origin, 5, cv::Scalar(255, 255, 255), -1);
 }
 
-// ----------------------------------------------------------------------------
-// overlayStatus()
-// Draws current rvec/tvec values and instructions onto the video frame.
-// ----------------------------------------------------------------------------
+/* overlayStatus()
+ * Draws current rvec/tvec values and instructions onto the video frame. */
 void PoseEstimator::overlayStatus(cv::Mat& frame, bool poseFound) const
 {
     cv::Scalar color = poseFound

@@ -1,22 +1,20 @@
-////////////////////////////////////////////////////////////////////////////////
-// SIFTTracker.cpp - SIFT-based AR Tracker Implementation
-// Author:      Krushna Sanjay Sharma
-// Description: Implements SIFT feature matching and pose estimation for AR
-//              on a dollar bill target. Replaces chessboard with texture-based
-//              tracking using the same camera calibration.
-//
-// Extension:   Uber Extension 2 — AR with SIFT feature points
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * SIFTTracker.cpp - SIFT-based AR Tracker Implementation
+ * Author:      Krushna Sanjay Sharma
+ * Description: Implements SIFT feature matching and pose estimation for AR
+ *              on a dollar bill target. Replaces chessboard with texture-based
+ *              tracking using the same camera calibration.
+ *
+ * Extension:   Uber Extension 2 — AR with SIFT feature points
+ *
+ * Date: March 2026
+ */
 
 #include "SIFTTracker.h"
 #include <iostream>
 #include <iomanip>
 
-// ----------------------------------------------------------------------------
-// Constructor
-// ----------------------------------------------------------------------------
+/* Constructor */
 SIFTTracker::SIFTTracker(const std::string& calibrationFile,
                           const std::string& referenceImage,
                           int nfeatures)
@@ -36,9 +34,7 @@ SIFTTracker::SIFTTracker(const std::string& calibrationFile,
     m_tvecSmooth = cv::Mat::zeros(3, 1, CV_64F);
 }
 
-// ----------------------------------------------------------------------------
-// initialize()
-// ----------------------------------------------------------------------------
+/* initialize() */
 bool SIFTTracker::initialize()
 {
     if (!loadCalibration()) return false;
@@ -46,9 +42,7 @@ bool SIFTTracker::initialize()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// loadCalibration()
-// ----------------------------------------------------------------------------
+/* loadCalibration() */
 bool SIFTTracker::loadCalibration()
 {
     cv::FileStorage fs(m_calibrationFile, cv::FileStorage::READ);
@@ -72,11 +66,9 @@ bool SIFTTracker::loadCalibration()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// loadReference()
-// Loads reference bill image and computes SIFT keypoints + descriptors.
-// These are computed once and reused every frame.
-// ----------------------------------------------------------------------------
+/* loadReference()
+ * Loads reference bill image and computes SIFT keypoints + descriptors.
+ * These are computed once and reused every frame. */
 bool SIFTTracker::loadReference()
 {
     m_refImage = cv::imread(m_referenceImagePath, cv::IMREAD_COLOR);
@@ -111,10 +103,8 @@ bool SIFTTracker::loadReference()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// track()
-// Main per-frame tracking function.
-// ----------------------------------------------------------------------------
+/* track()
+ * Main per-frame tracking function. */
 bool SIFTTracker::track(const cv::Mat& frame)
 {
     m_tracking    = false;
@@ -143,10 +133,10 @@ bool SIFTTracker::track(const cv::Mat& frame)
     // Step 3: estimate pose
     m_tracking = estimatePose(liveKeypoints, goodMatches);
 
-    // Step 4: apply exponential moving average smoothing to reduce shakiness
-    // Blends current raw pose with previous smoothed pose:
-    //   smoothed = alpha * raw + (1 - alpha) * previous_smoothed
-    // This reduces frame-to-frame jitter without introducing much lag.
+    /* Step 4: apply exponential moving average smoothing to reduce shakiness
+     * Blends current raw pose with previous smoothed pose:
+     *   smoothed = alpha * raw + (1 - alpha) * previous_smoothed
+     * This reduces frame-to-frame jitter without introducing much lag. */
     if (m_tracking)
     {
         if (!m_hasSmooth)
@@ -169,12 +159,10 @@ bool SIFTTracker::track(const cv::Mat& frame)
     return m_tracking;
 }
 
-// ----------------------------------------------------------------------------
-// matchFeatures()
-// BFMatcher with L2 norm (correct for SIFT float descriptors).
-// Applies Lowe's ratio test: keeps match only if best match is significantly
-// better than second best (ratio < 0.75).
-// ----------------------------------------------------------------------------
+/* matchFeatures()
+ * BFMatcher with L2 norm (correct for SIFT float descriptors).
+ * Applies Lowe's ratio test: keeps match only if best match is significantly
+ * better than second best (ratio < 0.75). */
 std::vector<cv::DMatch> SIFTTracker::matchFeatures(
     const cv::Mat& liveDescriptors) const
 {
@@ -185,8 +173,8 @@ std::vector<cv::DMatch> SIFTTracker::matchFeatures(
     std::vector<std::vector<cv::DMatch>> knnMatches;
     matcher.knnMatch(liveDescriptors, m_refDescriptors, knnMatches, 2);
 
-    // Lowe's ratio test — 0.7 is standard, use 0.65 for stricter matching
-    // Lower ratio = fewer but more reliable matches = less shakiness
+    /* Lowe's ratio test — 0.7 is standard, use 0.65 for stricter matching
+     * Lower ratio = fewer but more reliable matches = less shakiness */
     std::vector<cv::DMatch> goodMatches;
     for (const auto& m : knnMatches)
     {
@@ -197,15 +185,13 @@ std::vector<cv::DMatch> SIFTTracker::matchFeatures(
     return goodMatches;
 }
 
-// ----------------------------------------------------------------------------
-// estimatePose()
-// Uses findHomography+RANSAC to identify inliers, then builds 3D-2D
-// correspondences and runs solvePnP.
-//
-// 3D world points: reference image pixels mapped to bill surface (cm units)
-//   refPointTo3D() converts 2D reference pixel → 3D world cm coordinate
-//   Z = 0 for all points (flat planar surface)
-// ----------------------------------------------------------------------------
+/* estimatePose()
+ * Uses findHomography+RANSAC to identify inliers, then builds 3D-2D
+ * correspondences and runs solvePnP.
+ *
+ * 3D world points: reference image pixels mapped to bill surface (cm units)
+ *   refPointTo3D() converts 2D reference pixel → 3D world cm coordinate
+ *   Z = 0 for all points (flat planar surface) */
 bool SIFTTracker::estimatePose(
     const std::vector<cv::KeyPoint>& liveKeypoints,
     const std::vector<cv::DMatch>&   goodMatches)
@@ -218,8 +204,8 @@ bool SIFTTracker::estimatePose(
         livePts.push_back(liveKeypoints[m.queryIdx].pt);
     }
 
-    // RANSAC threshold 5.0px — more tolerant of camera noise
-    // giving more inliers while still filtering wrong matches
+    /* RANSAC threshold 5.0px — more tolerant of camera noise
+     * giving more inliers while still filtering wrong matches */
     cv::Mat inlierMask;
     cv::Mat H = cv::findHomography(refPts, livePts,
                                     cv::RANSAC, 5.0, inlierMask);
@@ -239,9 +225,9 @@ bool SIFTTracker::estimatePose(
 
     if (inlierCount < MIN_INLIERS) return false;
 
-    // Build 3D-2D correspondences from inliers only
-    // 3D: reference pixel → cm world coordinate on bill surface (Z=0)
-    // 2D: corresponding live frame pixel
+    /* Build 3D-2D correspondences from inliers only
+     * 3D: reference pixel → cm world coordinate on bill surface (Z=0)
+     * 2D: corresponding live frame pixel */
     std::vector<cv::Vec3f>   objPoints;
     std::vector<cv::Point2f> imgPoints;
 
@@ -252,12 +238,12 @@ bool SIFTTracker::estimatePose(
         imgPoints.push_back(livePts[i]);
     }
 
-    // solvePnP: compute rotation and translation
-    // Uses same calibration matrix as Tasks 4-6
+    /* solvePnP: compute rotation and translation
+     * Uses same calibration matrix as Tasks 4-6 */
     try
     {
-        // Use previous pose as initial guess when available —
-        // significantly improves stability at steep angles
+        /* Use previous pose as initial guess when available —
+         * significantly improves stability at steep angles */
         bool ok = cv::solvePnP(
             objPoints,
             imgPoints,
@@ -277,16 +263,14 @@ bool SIFTTracker::estimatePose(
     }
 }
 
-// ----------------------------------------------------------------------------
-// refPointTo3D()
-// Maps a 2D reference image point to a 3D world point on the bill surface.
-//
-// Reference image covers the full bill:
-//   pixel (0,0)              → world (0, 0, 0)        top-left corner
-//   pixel (refW, 0)          → world (BILL_WIDTH, 0, 0)
-//   pixel (0, refH)          → world (0, BILL_HEIGHT, 0)
-//   pixel (refW/2, refH/2)   → world (BILL_WIDTH/2, BILL_HEIGHT/2, 0)
-// ----------------------------------------------------------------------------
+/* refPointTo3D()
+ * Maps a 2D reference image point to a 3D world point on the bill surface.
+ *
+ * Reference image covers the full bill:
+ *   pixel (0,0)              → world (0, 0, 0)        top-left corner
+ *   pixel (refW, 0)          → world (BILL_WIDTH, 0, 0)
+ *   pixel (0, refH)          → world (0, BILL_HEIGHT, 0)
+ *   pixel (refW/2, refH/2)   → world (BILL_WIDTH/2, BILL_HEIGHT/2, 0) */
 cv::Vec3f SIFTTracker::refPointTo3D(const cv::Point2f& refPt) const
 {
     float xCm = (refPt.x / m_refImage.cols) * BILL_WIDTH_CM;
@@ -294,10 +278,8 @@ cv::Vec3f SIFTTracker::refPointTo3D(const cv::Point2f& refPt) const
     return cv::Vec3f(xCm, yCm, 0.0f);
 }
 
-// ----------------------------------------------------------------------------
-// drawDebug()
-// Draws inlier matches and tracking status on the display frame.
-// ----------------------------------------------------------------------------
+/* drawDebug()
+ * Draws inlier matches and tracking status on the display frame. */
 void SIFTTracker::drawDebug(cv::Mat& displayFrame) const
 {
     auto putText2 = [&](const std::string& t, cv::Point p,

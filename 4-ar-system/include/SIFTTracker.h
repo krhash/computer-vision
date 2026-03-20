@@ -1,38 +1,38 @@
-////////////////////////////////////////////////////////////////////////////////
-// SIFTTracker.h - SIFT-based AR Tracker Header
-// Author:      Krushna Sanjay Sharma
-// Description: Declares the SIFTTracker class which replaces the chessboard
-//              target with a dollar bill tracked via SIFT feature matching.
-//              Uses the same calibration XML from Tasks 1-3.
-//              Pose is estimated with cv::solvePnP on matched feature points.
-//
-// Extension:   Uber Extension 2 — AR with SIFT feature points
-//
-// Pipeline per frame:
-//   1. Detect SIFT keypoints on live frame
-//   2. Match against pre-computed reference keypoints (BFMatcher + ratio test)
-//   3. Filter outliers with cv::findHomography (RANSAC)
-//   4. Map inlier 2D reference points → 3D world points on bill surface
-//   5. cv::solvePnP → rvec, tvec
-//   6. cv::projectPoints → draw rocket via VirtualObject
-//
-// Key OpenCV functions:
-//   cv::SIFT::create()          - SIFT detector
-//   cv::BFMatcher               - brute-force descriptor matching
-//   cv::findHomography()        - compute homography + RANSAC outlier rejection
-//   cv::solvePnP()              - estimate pose from 3D-2D correspondences
-//   cv::projectPoints()         - project 3D object onto image (in VirtualObject)
-//
-// World coordinate convention:
-//   The dollar bill is treated as a flat plane (Z=0).
-//   Origin (0,0,0) = top-left corner of the bill.
-//   X increases rightward (bill width = BILL_WIDTH_CM units).
-//   Y increases downward (bill height = BILL_HEIGHT_CM units).
-//   Z positive = toward the camera (above the bill surface).
-//   Units = centimeters.
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * SIFTTracker.h - SIFT-based AR Tracker Header
+ * Author:      Krushna Sanjay Sharma
+ * Description: Declares the SIFTTracker class which replaces the chessboard
+ *              target with a dollar bill tracked via SIFT feature matching.
+ *              Uses the same calibration XML from Tasks 1-3.
+ *              Pose is estimated with cv::solvePnP on matched feature points.
+ *
+ * Extension:   Uber Extension 2 — AR with SIFT feature points
+ *
+ * Pipeline per frame:
+ *   1. Detect SIFT keypoints on live frame
+ *   2. Match against pre-computed reference keypoints (BFMatcher + ratio test)
+ *   3. Filter outliers with cv::findHomography (RANSAC)
+ *   4. Map inlier 2D reference points → 3D world points on bill surface
+ *   5. cv::solvePnP → rvec, tvec
+ *   6. cv::projectPoints → draw rocket via VirtualObject
+ *
+ * Key OpenCV functions:
+ *   cv::SIFT::create()          - SIFT detector
+ *   cv::BFMatcher               - brute-force descriptor matching
+ *   cv::findHomography()        - compute homography + RANSAC outlier rejection
+ *   cv::solvePnP()              - estimate pose from 3D-2D correspondences
+ *   cv::projectPoints()         - project 3D object onto image (in VirtualObject)
+ *
+ * World coordinate convention:
+ *   The dollar bill is treated as a flat plane (Z=0).
+ *   Origin (0,0,0) = top-left corner of the bill.
+ *   X increases rightward (bill width = BILL_WIDTH_CM units).
+ *   Y increases downward (bill height = BILL_HEIGHT_CM units).
+ *   Z positive = toward the camera (above the bill surface).
+ *   Units = centimeters.
+ *
+ * Date: March 2026
+ */
 
 #pragma once
 
@@ -41,13 +41,13 @@
 #include <string>
 #include <vector>
 
-////////////////////////////////////////////////////////////////////////////////
-// SIFTTracker
-//
-// Loads a reference image of the dollar bill and pre-computes its SIFT
-// keypoints and descriptors. Each frame, detects SIFT on the live image,
-// matches against the reference, and estimates pose with solvePnP.
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * SIFTTracker
+ *
+ * Loads a reference image of the dollar bill and pre-computes its SIFT
+ * keypoints and descriptors. Each frame, detects SIFT on the live image,
+ * matches against the reference, and estimates pose with solvePnP.
+ */
 class SIFTTracker
 {
 public:
@@ -58,41 +58,39 @@ public:
     // Minimum inlier matches required to accept a pose estimate
     static constexpr int MIN_INLIERS = 8;
 
-    // -------------------------------------------------------------------------
-    // Constructor
-    // calibrationFile : path to calibration XML (from calibrateCamera app)
-    // referenceImage  : path to a flat photo of the dollar bill
-    // nfeatures       : max SIFT features per frame (0 = unlimited)
-    //                   Higher = more matches but slower. 800 is a good balance.
-    // -------------------------------------------------------------------------
+    /*
+     * Constructor
+     * calibrationFile : path to calibration XML (from calibrateCamera app)
+     * referenceImage  : path to a flat photo of the dollar bill
+     * nfeatures       : max SIFT features per frame (0 = unlimited)
+     *                   Higher = more matches but slower. 800 is a good balance.
+     */
     SIFTTracker(const std::string& calibrationFile,
                 const std::string& referenceImage,
                 int nfeatures = 300);
 
-    // -------------------------------------------------------------------------
-    // initialize()
-    // Loads calibration and reference image, computes reference SIFT features.
-    // Must be called before track(). Returns false on failure.
-    // -------------------------------------------------------------------------
+    /*
+     * initialize()
+     * Loads calibration and reference image, computes reference SIFT features.
+     * Must be called before track(). Returns false on failure.
+     */
     bool initialize();
 
-    // -------------------------------------------------------------------------
-    // track()
-    // Detects SIFT features in the live frame, matches to reference,
-    // estimates pose via solvePnP. Updates rvec/tvec if successful.
-    // Returns true if tracking succeeded this frame.
-    // -------------------------------------------------------------------------
+    /*
+     * track()
+     * Detects SIFT features in the live frame, matches to reference,
+     * estimates pose via solvePnP. Updates rvec/tvec if successful.
+     * Returns true if tracking succeeded this frame.
+     */
     bool track(const cv::Mat& frame);
 
-    // -------------------------------------------------------------------------
-    // drawDebug()
-    // Draws matched keypoints and inlier count on displayFrame.
-    // -------------------------------------------------------------------------
+    /*
+     * drawDebug()
+     * Draws matched keypoints and inlier count on displayFrame.
+     */
     void drawDebug(cv::Mat& displayFrame) const;
 
-    // -------------------------------------------------------------------------
-    // Accessors — return SMOOTHED pose for stable rendering
-    // -------------------------------------------------------------------------
+    /* Accessors — return SMOOTHED pose for stable rendering */
     const cv::Mat& getRvec()         const { return m_hasSmooth ? m_rvecSmooth : m_rvec; }
     const cv::Mat& getTvec()         const { return m_hasSmooth ? m_tvecSmooth : m_tvec; }
     const cv::Mat& getCameraMatrix() const { return m_cameraMatrix; }
@@ -101,46 +99,40 @@ public:
     int            getInlierCount()  const { return m_inlierCount; }
 
 private:
-    // -------------------------------------------------------------------------
-    // loadCalibration() - reads camera_matrix and distortion_coefficients
-    // -------------------------------------------------------------------------
+    /* loadCalibration() - reads camera_matrix and distortion_coefficients */
     bool loadCalibration();
 
-    // -------------------------------------------------------------------------
-    // loadReference() - loads reference image and computes SIFT features
-    // -------------------------------------------------------------------------
+    /* loadReference() - loads reference image and computes SIFT features */
     bool loadReference();
 
-    // -------------------------------------------------------------------------
-    // matchFeatures()
-    // Matches live frame descriptors against reference descriptors.
-    // Applies Lowe's ratio test to filter weak matches.
-    // Returns good matches.
-    // -------------------------------------------------------------------------
+    /*
+     * matchFeatures()
+     * Matches live frame descriptors against reference descriptors.
+     * Applies Lowe's ratio test to filter weak matches.
+     * Returns good matches.
+     */
     std::vector<cv::DMatch> matchFeatures(
         const cv::Mat& liveDescriptors) const;
 
-    // -------------------------------------------------------------------------
-    // estimatePose()
-    // Converts good matches to 3D-2D correspondences and runs solvePnP.
-    // Uses findHomography+RANSAC to filter outliers first.
-    // Returns true on success.
-    // -------------------------------------------------------------------------
+    /*
+     * estimatePose()
+     * Converts good matches to 3D-2D correspondences and runs solvePnP.
+     * Uses findHomography+RANSAC to filter outliers first.
+     * Returns true on success.
+     */
     bool estimatePose(
         const std::vector<cv::KeyPoint>& liveKeypoints,
         const std::vector<cv::DMatch>&   goodMatches);
 
-    // -------------------------------------------------------------------------
-    // refPointTo3D()
-    // Maps a 2D reference image point to a 3D world point on the bill surface.
-    // Reference image pixel → normalized bill coordinates → cm world coords.
-    // Z = 0 (flat surface).
-    // -------------------------------------------------------------------------
+    /*
+     * refPointTo3D()
+     * Maps a 2D reference image point to a 3D world point on the bill surface.
+     * Reference image pixel → normalized bill coordinates → cm world coords.
+     * Z = 0 (flat surface).
+     */
     cv::Vec3f refPointTo3D(const cv::Point2f& refPt) const;
 
-    // =========================================================================
-    // Member variables
-    // =========================================================================
+    /* Member variables */
     std::string m_calibrationFile;
     std::string m_referenceImagePath;
     int         m_nfeatures;

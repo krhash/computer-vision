@@ -1,27 +1,27 @@
-////////////////////////////////////////////////////////////////////////////////
-// multiTargetAR.cpp - Multi-Target Augmented Reality Application
-// Author:      Krushna Sanjay Sharma
-// Description: Tracks two targets simultaneously in the same scene:
-//              1. Chessboard → 3D Rocket  (PoseEstimator + VirtualObject)
-//              2. Dollar bill → 3D Eagle  (SIFTTracker + VirtualEagleObject)
-//
-//              Both targets are always active. Place chessboard and dollar
-//              bill in the same camera view to see both AR objects at once.
-//
-// Extension:   Multiple targets in the scene
-//
-// Usage:
-//   multiTargetAR.exe [calibrationFile] [billImage] [cameraId]
-//
-// Controls:
-//   'r'     - toggle rocket visibility (chessboard)
-//   'e'     - toggle eagle visibility  (dollar bill)
-//   'd'     - toggle SIFT debug keypoints
-//   SPACE   - cycle chessboard display mode (axes/corners/both)
-//   'q'/ESC - quit
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * multiTargetAR.cpp - Multi-Target Augmented Reality Application
+ * Author:      Krushna Sanjay Sharma
+ * Description: Tracks two targets simultaneously in the same scene:
+ *              1. Chessboard → 3D Rocket  (PoseEstimator + VirtualObject)
+ *              2. Dollar bill → 3D Eagle  (SIFTTracker + VirtualEagleObject)
+ *
+ *              Both targets are always active. Place chessboard and dollar
+ *              bill in the same camera view to see both AR objects at once.
+ *
+ * Extension:   Multiple targets in the scene
+ *
+ * Usage:
+ *   multiTargetAR.exe [calibrationFile] [billImage] [cameraId]
+ *
+ * Controls:
+ *   'r'     - toggle rocket visibility (chessboard)
+ *   'e'     - toggle eagle visibility  (dollar bill)
+ *   'd'     - toggle SIFT debug keypoints
+ *   SPACE   - cycle chessboard display mode (axes/corners/both)
+ *   'q'/ESC - quit
+ *
+ * Date: March 2026
+ */
 
 #include "PoseEstimator.h"
 #include "SIFTTracker.h"
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     std::cout << "   Dollar bill  → Eagle\n";
     std::cout << "========================================\n\n";
 
-    // ── Resolve paths ─────────────────────────────────────────────────────────
+    /* Resolve paths */
     std::filesystem::path exeDir =
         std::filesystem::path(argv[0]).parent_path();
 
@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
     std::cout << "Bill image  : " << billImage  << "\n";
     std::cout << "Camera ID   : " << cameraId   << "\n\n";
 
-    // ── Target 1: Chessboard tracker ─────────────────────────────────────────
+    /* Target 1: Chessboard tracker */
     PoseEstimator chessTracker(calibFile, cameraId);
     if (!chessTracker.loadCalibration())
     {
@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     VirtualObject rocket;
     rocket.buildRocket();
 
-    // ── Target 2: Dollar bill tracker ────────────────────────────────────────
+    /* Target 2: Dollar bill tracker */
     SIFTTracker billTracker(calibFile, billImage, 300);
     if (!billTracker.initialize())
     {
@@ -83,12 +83,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // Eagle on dollar bill
-    // scale=2.5: makes wingspan ~15cm which fills the bill nicely
-    // Z values scale too so eagle floats visibly above the bill
-    // Eagle on dollar bill
-    // scale=1.2: wingspan ~7cm — fits inside bill without covering it
-    // Z offset=2.0cm: floats visibly above bill surface
+    /* Eagle on dollar bill
+     * scale=1.2: wingspan ~7cm — fits inside bill without covering it
+     * Z offset=2.0cm: floats visibly above bill surface */
     VirtualEagleObject eagle;
     eagle.build(
         cv::Vec3f(7.8f, 3.3f, 2.0f),   // center of bill, 2cm above surface
@@ -97,7 +94,7 @@ int main(int argc, char* argv[])
         true                             // flipZ
     );
 
-    // ── Open webcam ───────────────────────────────────────────────────────────
+    /* Open webcam */
     cv::VideoCapture cap(cameraId);
     if (!cap.isOpened())
     {
@@ -105,7 +102,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // ── Controls ──────────────────────────────────────────────────────────────
+    /* Controls */
     bool showRocket = true;
     bool showEagle  = true;
     bool showDebug  = false;
@@ -127,7 +124,7 @@ int main(int argc, char* argv[])
 
         cv::Mat display = frame.clone();
 
-        // ── Target 1: Chessboard → Rocket ────────────────────────────────────
+        /* Target 1: Chessboard → Rocket */
         {
             std::vector<cv::Point2f> corners;
             bool found = chessTracker.detectCorners(frame, corners);
@@ -165,7 +162,7 @@ int main(int argc, char* argv[])
                         cv::FONT_HERSHEY_SIMPLEX, 0.6, col, 1);
         }
 
-        // ── Target 2: Dollar bill → Eagle ────────────────────────────────────
+        /* Target 2: Dollar bill → Eagle */
         {
             bool tracked = billTracker.track(frame);
 
@@ -191,7 +188,7 @@ int main(int argc, char* argv[])
                         cv::FONT_HERSHEY_SIMPLEX, 0.6, col, 1);
         }
 
-        // ── Bottom hints ──────────────────────────────────────────────────────
+        /* Bottom hints */
         cv::putText(display,
                     std::string("Rocket:") + (showRocket ? "ON" : "OFF")
                     + "('r')  Eagle:" + (showEagle ? "ON" : "OFF") + "('e')",
@@ -201,7 +198,7 @@ int main(int argc, char* argv[])
 
         cv::imshow("Multi-Target AR", display);
 
-        // ── Keys ──────────────────────────────────────────────────────────────
+        /* Keys */
         char key = static_cast<char>(cv::waitKey(30));
         if (key == 'q' || key == 27) break;
         if (key == 'r') { showRocket = !showRocket; }

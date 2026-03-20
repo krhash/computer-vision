@@ -1,24 +1,24 @@
-////////////////////////////////////////////////////////////////////////////////
-// featureDetector.cpp - Feature Detector Application Entry Point
-// Author:      Krushna Sanjay Sharma
-// Description: Main application for Task 7. Runs SIFT feature detection
-//              on a live webcam feed pointed at a dollar bill pattern.
-//              A trackbar controls the max number of features detected.
-//              Circle size shows feature scale, line shows orientation.
-//
-// Usage:
-//   featureDetector.exe [cameraId] [maxFeatures] [contrastThreshold]
-//
-//   cameraId          : webcam index (default: 0)
-//   maxFeatures       : max SIFT features (default: 500, 0 = unlimited)
-//   contrastThreshold : SIFT sensitivity (default: 0.04, lower = more features)
-//
-// Controls:
-//   Trackbar  - drag to adjust max features in real time
-//   'q' / ESC - quit
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * featureDetector.cpp - Feature Detector Application Entry Point
+ * Author:      Krushna Sanjay Sharma
+ * Description: Main application for Task 7. Runs SIFT feature detection
+ *              on a live webcam feed pointed at a dollar bill pattern.
+ *              A trackbar controls the max number of features detected.
+ *              Circle size shows feature scale, line shows orientation.
+ *
+ * Usage:
+ *   featureDetector.exe [cameraId] [maxFeatures] [contrastThreshold]
+ *
+ *   cameraId          : webcam index (default: 0)
+ *   maxFeatures       : max SIFT features (default: 500, 0 = unlimited)
+ *   contrastThreshold : SIFT sensitivity (default: 0.04, lower = more features)
+ *
+ * Controls:
+ *   Trackbar  - drag to adjust max features in real time
+ *   'q' / ESC - quit
+ *
+ * Date: March 2026
+ */
 
 #include "FeatureDetector.h"
 #include <iostream>

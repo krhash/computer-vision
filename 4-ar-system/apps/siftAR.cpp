@@ -1,31 +1,31 @@
-////////////////////////////////////////////////////////////////////////////////
-// siftAR.cpp - SIFT-based Augmented Reality Application
-// Author:      Krushna Sanjay Sharma
-// Description: Uber Extension 2 — AR with SIFT feature points.
-//              Replaces the chessboard target with a dollar bill tracked
-//              via SIFT feature matching. Uses the same camera calibration
-//              from Tasks 1-3 and the same rocket VirtualObject from Task 6.
-//
-// Usage:
-//   siftAR.exe [calibrationFile] [referenceImage] [cameraId]
-//
-//   calibrationFile : path to calibration XML (default: exe-relative path)
-//   referenceImage  : flat photo of the dollar bill (default: data/bill.jpg)
-//   cameraId        : webcam index (default: 0)
-//
-// Controls:
-//   'r'     - toggle rocket on/off
-//   'd'     - toggle debug overlay (inlier keypoints)
-//   'q'/ESC - quit
-//
-// How to prepare the reference image:
-//   1. Lay the dollar bill flat on a table
-//   2. Take a photo from directly above (as flat/square as possible)
-//   3. Crop to just the bill with minimal border
-//   4. Save as data/bill.jpg
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * siftAR.cpp - SIFT-based Augmented Reality Application
+ * Author:      Krushna Sanjay Sharma
+ * Description: Uber Extension 2 — AR with SIFT feature points.
+ *              Replaces the chessboard target with a dollar bill tracked
+ *              via SIFT feature matching. Uses the same camera calibration
+ *              from Tasks 1-3 and the same rocket VirtualObject from Task 6.
+ *
+ * Usage:
+ *   siftAR.exe [calibrationFile] [referenceImage] [cameraId]
+ *
+ *   calibrationFile : path to calibration XML (default: exe-relative path)
+ *   referenceImage  : flat photo of the dollar bill (default: data/bill.jpg)
+ *   cameraId        : webcam index (default: 0)
+ *
+ * Controls:
+ *   'r'     - toggle rocket on/off
+ *   'd'     - toggle debug overlay (inlier keypoints)
+ *   'q'/ESC - quit
+ *
+ * How to prepare the reference image:
+ *   1. Lay the dollar bill flat on a table
+ *   2. Take a photo from directly above (as flat/square as possible)
+ *   3. Crop to just the bill with minimal border
+ *   4. Save as data/bill.jpg
+ *
+ * Date: March 2026
+ */
 
 #include "SIFTTracker.h"
 #include "VirtualObject.h"
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     std::cout << " SIFT AR App (Uber Extension 2)\n";
     std::cout << "========================================\n\n";
 
-    // ── Resolve default paths relative to executable ──────────────────────────
+    /* Resolve default paths relative to executable */
     std::filesystem::path exeDir =
         std::filesystem::path(argv[0]).parent_path();
 
@@ -70,11 +70,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // ── Build rocket for dollar bill ──────────────────────────────────────────
-    // Bill: X right (0-15.6cm), Y down (0-6.6cm).
-    // flipY=true: bill Y is positive downward (opposite to chessboard -row).
-    // flipZ=true: bill solvePnP Z toward camera is negative (standard OpenCV).
-    // scale=1.2: 1 unit = 1.2cm
+    /* Build rocket for dollar bill
+     * Bill: X right (0-15.6cm), Y down (0-6.6cm).
+     * flipY=true: bill Y is positive downward (opposite to chessboard -row).
+     * flipZ=true: bill solvePnP Z toward camera is negative (standard OpenCV).
+     * scale=1.2: 1 unit = 1.2cm */
     VirtualObject rocket;
     rocket.buildRocket(
         cv::Vec3f(7.8f - 0.75f, 3.3f - 0.75f, 0.0f),  // center on bill
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
         true                                             // flipZ
     );
 
-    // ── Open webcam ───────────────────────────────────────────────────────────
+    /* Open webcam */
     cv::VideoCapture cap(cameraId);
     if (!cap.isOpened())
     {
@@ -108,14 +108,14 @@ int main(int argc, char* argv[])
 
         cv::Mat display = frame.clone();
 
-        // ── Track bill and estimate pose ──────────────────────────────────────
+        /* Track bill and estimate pose */
         bool tracked = tracker.track(frame);
 
-        // ── Draw debug overlay ────────────────────────────────────────────────
+        /* Draw debug overlay */
         if (showDebug)
             tracker.drawDebug(display);
 
-        // ── Draw rocket if tracking ───────────────────────────────────────────
+        /* Draw rocket if tracking */
         if (tracked && showRocket)
         {
             rocket.draw(display,

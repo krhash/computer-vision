@@ -1,26 +1,24 @@
-////////////////////////////////////////////////////////////////////////////////
-// FeatureDetector.cpp - Feature Detector Class Implementation
-// Author:      Krushna Sanjay Sharma
-// Description: Implements SIFT feature detection on a live video stream.
-//              Uses cv::SIFT::create() and detectAndCompute() to find
-//              keypoints on a dollar bill pattern. Draws keypoints with
-//              scale and orientation indicators using cv::drawKeypoints().
-//              SIFT detector is cached and only recreated when trackbar changes.
-//
-// Task coverage:
-//   Task 7 - Detect and visualize SIFT features on a dollar bill
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * FeatureDetector.cpp - Feature Detector Class Implementation
+ * Author:      Krushna Sanjay Sharma
+ * Description: Implements SIFT feature detection on a live video stream.
+ *              Uses cv::SIFT::create() and detectAndCompute() to find
+ *              keypoints on a dollar bill pattern. Draws keypoints with
+ *              scale and orientation indicators using cv::drawKeypoints().
+ *              SIFT detector is cached and only recreated when trackbar changes.
+ *
+ * Task coverage:
+ *   Task 7 - Detect and visualize SIFT features on a dollar bill
+ *
+ * Date: March 2026
+ */
 
 #include "FeatureDetector.h"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 
-// ----------------------------------------------------------------------------
-// Constructor
-// ----------------------------------------------------------------------------
+/* Constructor */
 FeatureDetector::FeatureDetector(int cameraId, int nfeatures,
                                   double contrastThreshold)
     : m_cameraId(cameraId)
@@ -30,9 +28,7 @@ FeatureDetector::FeatureDetector(int cameraId, int nfeatures,
 {
 }
 
-// ----------------------------------------------------------------------------
-// run() - Main video loop for Task 7
-// ----------------------------------------------------------------------------
+/* run() - Main video loop for Task 7 */
 bool FeatureDetector::run()
 {
     cv::VideoCapture cap(m_cameraId);
@@ -81,10 +77,8 @@ bool FeatureDetector::run()
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// detectSIFT() - Core of Task 7
-// Recreates SIFT detector only when trackbar value changes — not every frame.
-// ----------------------------------------------------------------------------
+/* detectSIFT() - Core of Task 7
+ * Recreates SIFT detector only when trackbar value changes — not every frame. */
 int FeatureDetector::detectSIFT(const cv::Mat& frame, cv::Mat& displayFrame)
 {
     cv::Mat gray;
@@ -125,9 +119,7 @@ int FeatureDetector::detectSIFT(const cv::Mat& frame, cv::Mat& displayFrame)
     return static_cast<int>(keypoints.size());
 }
 
-// ----------------------------------------------------------------------------
-// overlayInfo()
-// ----------------------------------------------------------------------------
+/* overlayInfo() */
 void FeatureDetector::overlayInfo(cv::Mat& frame, int keypointCount) const
 {
     auto putText2 = [&](const std::string& text, cv::Point pos,

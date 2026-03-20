@@ -1,30 +1,28 @@
-////////////////////////////////////////////////////////////////////////////////
-// VirtualEagleObject.cpp - Virtual Eagle Object Implementation
-// Author:      Krushna Sanjay Sharma
-// Description: Implements a 3D wireframe eagle floating above the dollar bill.
-//              Geometry defined in local space, transformed at build time.
-//              cv::projectPoints() projects all endpoints in one batch call.
-//
-// Extension:   Multiple targets in the scene
-//
-// Date: March 2026
-////////////////////////////////////////////////////////////////////////////////
+/*
+ * VirtualEagleObject.cpp - Virtual Eagle Object Implementation
+ * Author:      Krushna Sanjay Sharma
+ * Description: Implements a 3D wireframe eagle floating above the dollar bill.
+ *              Geometry defined in local space, transformed at build time.
+ *              cv::projectPoints() projects all endpoints in one batch call.
+ *
+ * Extension:   Multiple targets in the scene
+ *
+ * Date: March 2026
+ */
 
 #include "VirtualEagleObject.h"
 #include <iostream>
 #include <cmath>
 
-// ── Draw colors (BGR) ─────────────────────────────────────────────────────────
+/* Draw colors (BGR) */
 static const cv::Scalar COLOR_BODY (255,  80,   0);   // blue   — torso
 static const cv::Scalar COLOR_HEAD (200,   0,   0);   // dark blue — head
 static const cv::Scalar COLOR_BEAK (  0, 165, 255);   // amber  — beak
 static const cv::Scalar COLOR_WING (200, 180, 100);   // light blue — wings
 static const cv::Scalar COLOR_TAIL (  0, 165, 255);   // amber  — tail
 
-// ----------------------------------------------------------------------------
-// addLine()
-// Applies axis flips, scale, then offset before storing the segment.
-// ----------------------------------------------------------------------------
+/* addLine()
+ * Applies axis flips, scale, then offset before storing the segment. */
 void VirtualEagleObject::addLine(const cv::Vec3f& start,
                                   const cv::Vec3f& end,
                                   const cv::Scalar& color,
@@ -37,9 +35,7 @@ void VirtualEagleObject::addLine(const cv::Vec3f& start,
     m_lines.push_back({ s, e, color, thickness });
 }
 
-// ----------------------------------------------------------------------------
-// build()
-// ----------------------------------------------------------------------------
+/* build() */
 void VirtualEagleObject::build(cv::Vec3f offset, float scale,
                                  bool flipY, bool flipZ)
 {
@@ -61,10 +57,8 @@ void VirtualEagleObject::build(cv::Vec3f offset, float scale,
               << "  flipZ=" << (flipZ ? "yes" : "no") << "\n";
 }
 
-// ----------------------------------------------------------------------------
-// buildBody()
-// Diamond-shaped torso — front and back faces connected by edges.
-// ----------------------------------------------------------------------------
+/* buildBody()
+ * Diamond-shaped torso — front and back faces connected by edges. */
 void VirtualEagleObject::buildBody()
 {
     float w = E_BODY_W;
@@ -102,10 +96,8 @@ void VirtualEagleObject::buildBody()
     addLine(fL, bL, COLOR_BODY, 1);
 }
 
-// ----------------------------------------------------------------------------
-// buildHead()
-// Hexagonal cross-section head with a beak pointing in +X direction.
-// ----------------------------------------------------------------------------
+/* buildHead()
+ * Hexagonal cross-section head with a beak pointing in +X direction. */
 void VirtualEagleObject::buildHead()
 {
     float hw  = E_HEAD_W;
@@ -139,16 +131,14 @@ void VirtualEagleObject::buildHead()
             COLOR_HEAD, 1);
 }
 
-// ----------------------------------------------------------------------------
-// buildWings()
-// Two spread wings — each is a quad with a rib, attached at body sides.
-// ----------------------------------------------------------------------------
+/* buildWings()
+ * Two spread wings — each is a quad with a rib, attached at body sides. */
 void VirtualEagleObject::buildWings()
 {
     float bodyD  = E_BODY_W * 0.6f;
     float midZ   = (E_BODY_Z0 + E_BODY_Z1) * 0.5f;
 
-    // ── Left wing ────────────────────────────────────────────────────────────
+    /* Left wing */
     cv::Vec3f lR1(-E_BODY_W, -bodyD, midZ + 0.3f);  // root top
     cv::Vec3f lR2(-E_BODY_W, -bodyD, midZ - 0.3f);  // root bottom
     cv::Vec3f lT1(-E_WING_W,  0.0f,  E_WING_ZT);    // tip top
@@ -162,7 +152,7 @@ void VirtualEagleObject::buildWings()
     addLine(lR2, lR1, COLOR_WING, 1);
     addLine(lR1, lT2, COLOR_WING, 1);  // rib
 
-    // ── Right wing ───────────────────────────────────────────────────────────
+    /* Right wing */
     cv::Vec3f rR1( E_BODY_W, -bodyD, midZ + 0.3f);
     cv::Vec3f rR2( E_BODY_W, -bodyD, midZ - 0.3f);
     cv::Vec3f rT1( E_WING_W,  0.0f,  E_WING_ZT);
@@ -177,10 +167,8 @@ void VirtualEagleObject::buildWings()
     addLine(rR1, rT2, COLOR_WING, 1);  // rib
 }
 
-// ----------------------------------------------------------------------------
-// buildTail()
-// Three feather lines fanning downward from the body base.
-// ----------------------------------------------------------------------------
+/* buildTail()
+ * Three feather lines fanning downward from the body base. */
 void VirtualEagleObject::buildTail()
 {
     cv::Vec3f bL(-0.3f, 0.0f, E_BODY_Z0);
@@ -198,10 +186,8 @@ void VirtualEagleObject::buildTail()
     addLine(tM, tR, COLOR_TAIL, 1);
 }
 
-// ----------------------------------------------------------------------------
-// draw() - Core rendering
-// Collects all 3D endpoints, calls cv::projectPoints() once, draws lines.
-// ----------------------------------------------------------------------------
+/* draw() - Core rendering
+ * Collects all 3D endpoints, calls cv::projectPoints() once, draws lines. */
 void VirtualEagleObject::draw(cv::Mat&        frame,
                                 const cv::Mat& rvec,
                                 const cv::Mat& tvec,
