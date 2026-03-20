@@ -75,6 +75,10 @@ set(AR_CORE_SOURCES
     src/PoseEstimator.cpp
     src/VirtualObject.cpp
 
+    # Multi-target extension: Eagle object + SIFT tracker
+    src/VirtualEagleObject.cpp
+    src/SIFTTracker.cpp
+
     # Task 7: Feature Detection
     src/FeatureDetector.cpp
 
@@ -89,6 +93,10 @@ set(AR_CORE_HEADERS
     # Task 4-6: Pose Estimation & Virtual Object
     include/PoseEstimator.h
     include/VirtualObject.h
+
+    # Multi-target extension: Eagle object + SIFT tracker
+    include/VirtualEagleObject.h
+    include/SIFTTracker.h
 
     # Task 7: Feature Detection
     include/FeatureDetector.h
@@ -126,6 +134,14 @@ target_link_libraries(calibrateCamera ar_core ${OpenCV_LIBS})
 # Application 2: Augmented Reality (Tasks 4-6)
 add_executable(augmentedReality apps/augmentedReality.cpp)
 target_link_libraries(augmentedReality ar_core ${OpenCV_LIBS})
+
+# Application 5: Multi-Target AR (Extension)
+add_executable(multiTargetAR apps/multiTargetAR.cpp)
+target_link_libraries(multiTargetAR ar_core ${OpenCV_LIBS})
+
+# Application 4: SIFT AR (Uber Extension 2)
+add_executable(siftAR apps/siftAR.cpp)
+target_link_libraries(siftAR ar_core ${OpenCV_LIBS})
 
 # Application 3: Feature Detector (Task 7)
 add_executable(featureDetector apps/featureDetector.cpp)

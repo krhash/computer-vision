@@ -30,24 +30,37 @@ void VirtualObject::addLine(const cv::Vec3f& start,
                              const cv::Scalar& color,
                              int thickness)
 {
-    m_lines.push_back({ start, end, color, thickness });
+    // Apply axis flips, then scale, then offset
+    cv::Vec3f s(start[0], start[1] * m_ySign, start[2] * m_zSign);
+    cv::Vec3f e(end[0],   end[1]   * m_ySign, end[2]   * m_zSign);
+    s = s * m_scale + m_offset;
+    e = e * m_scale + m_offset;
+    m_lines.push_back({ s, e, color, thickness });
 }
 
 // ----------------------------------------------------------------------------
 // buildRocket()
-// Calls each sub-builder in order. Call once after construction.
+// offset and scale allow repositioning/resizing for different targets.
+// All geometry constants are multiplied by scale and shifted by offset.
 // ----------------------------------------------------------------------------
-void VirtualObject::buildRocket()
+void VirtualObject::buildRocket(cv::Vec3f offset, float scale, bool flipY, bool flipZ)
 {
     m_lines.clear();
+    m_scale  = scale;
+    m_offset = offset;
+    m_ySign  = flipY ? -1.0f : 1.0f;
+    m_zSign  = flipZ ? -1.0f : 1.0f;
     buildBody();
     buildNose();
     buildFins();
     buildExhaust();
     buildWindow();
 
-    std::cout << "[VirtualObject] Rocket built with "
-              << m_lines.size() << " line segments.\n";
+    std::cout << "[VirtualObject] Rocket built: "
+              << m_lines.size() << " segments"
+              << " scale=" << scale
+              << " flipY=" << (flipY ? "yes" : "no")
+              << " flipZ=" << (flipZ ? "yes" : "no") << "\n";
 }
 
 // ----------------------------------------------------------------------------

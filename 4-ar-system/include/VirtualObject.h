@@ -67,14 +67,19 @@ struct LineSegment
 class VirtualObject
 {
 public:
-    VirtualObject() = default;
+    VirtualObject() : m_scale(1.0f), m_offset(0,0,0), m_ySign(1.0f), m_zSign(1.0f) {}
 
     // -------------------------------------------------------------------------
     // buildRocket()
-    // Populates m_lines with all line segments that make up the rocket.
-    // Call once after construction. Geometry defined in world-space square units.
+    // offset : world position of rocket base center
+    // scale  : uniform scale (chessboard=1.0, bill=1.2)
+    // flipY  : negate Y values (bill has +Y downward, chessboard has -Y down)
+    // flipZ  : negate Z values (bill solvePnP Z direction may be inverted)
     // -------------------------------------------------------------------------
-    void buildRocket();
+    void buildRocket(cv::Vec3f offset = cv::Vec3f(0, 0, 0),
+                     float scale      = 1.0f,
+                     bool  flipY      = false,
+                     bool  flipZ      = false);
 
     // -------------------------------------------------------------------------
     // draw()
@@ -127,6 +132,12 @@ private:
 
     // All line segments making up the rocket
     std::vector<LineSegment> m_lines;
+
+    // Transform applied to all geometry at build time
+    cv::Vec3f m_offset;   // world position of rocket base
+    float     m_scale;    // uniform scale factor
+    float     m_ySign;    // +1.0 normal, -1.0 flip Y
+    float     m_zSign;    // +1.0 normal, -1.0 flip Z
 
     // ── Rocket geometry constants (world space, square units) ─────────────────
     // Convention: (col, -row, 0)

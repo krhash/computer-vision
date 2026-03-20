@@ -5,6 +5,7 @@
 //              Uses cv::SIFT::create() and detectAndCompute() to find
 //              keypoints on a dollar bill pattern. Draws keypoints with
 //              scale and orientation indicators using cv::drawKeypoints().
+//              SIFT detector is cached and only recreated when trackbar changes.
 //
 // Task coverage:
 //   Task 7 - Detect and visualize SIFT features on a dollar bill
@@ -25,6 +26,7 @@ FeatureDetector::FeatureDetector(int cameraId, int nfeatures,
     : m_cameraId(cameraId)
     , m_nfeatures(nfeatures)
     , m_contrastThreshold(contrastThreshold)
+    , m_lastNfeatures(-1)   // force creation on first frame
 {
 }
 
@@ -54,7 +56,6 @@ bool FeatureDetector::run()
     cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
 
     // Trackbar: controls max SIFT features
-    // 0 = unlimited, high values show only strongest features
     cv::createTrackbar("Max features", windowName, &m_nfeatures, 1000);
 
     cv::Mat frame;
@@ -82,47 +83,43 @@ bool FeatureDetector::run()
 
 // ----------------------------------------------------------------------------
 // detectSIFT() - Core of Task 7
-//
-// Pipeline:
-//   1. Convert frame to grayscale (SIFT requires grayscale)
-//   2. Create SIFT detector with current m_nfeatures setting
-//   3. detectAndCompute → keypoints + 128-dim descriptors
-//   4. drawKeypoints with DRAW_RICH_KEYPOINTS:
-//      circle size = scale, line = orientation
+// Recreates SIFT detector only when trackbar value changes — not every frame.
 // ----------------------------------------------------------------------------
 int FeatureDetector::detectSIFT(const cv::Mat& frame, cv::Mat& displayFrame)
 {
-    // Step 1: grayscale
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-    // Step 2: create SIFT detector
-    // Re-created each frame so trackbar changes apply immediately
-    cv::Ptr<cv::SIFT> sift = cv::SIFT::create(
-        m_nfeatures,          // max features (0 = unlimited)
-        3,                    // nOctaveLayers
-        m_contrastThreshold,  // contrast threshold
-        10,                   // edgeThreshold
-        1.6                   // sigma
-    );
+    // Recreate SIFT only when trackbar value changes
+    if (!m_sift || m_nfeatures != m_lastNfeatures)
+    {
+        m_sift = cv::SIFT::create(
+            m_nfeatures,
+            3,
+            m_contrastThreshold,
+            10,
+            1.6
+        );
+        m_lastNfeatures = m_nfeatures;
+    }
 
-    // Step 3: detect keypoints and compute descriptors
+    // Detect keypoints and compute descriptors using cached detector
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
-    sift->detectAndCompute(
-        gray,           // input
-        cv::noArray(),  // no mask
-        keypoints,      // OUTPUT: keypoints
-        descriptors     // OUTPUT: 128-dim descriptors
+    m_sift->detectAndCompute(
+        gray,
+        cv::noArray(),
+        keypoints,
+        descriptors
     );
 
-    // Step 4: draw with rich flags (scale + orientation)
+    // Draw with rich flags — circle size = scale, line = orientation
     cv::drawKeypoints(
         frame,
         keypoints,
         displayFrame,
-        cv::Scalar(0, 165, 255),                        // orange
-        cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS       // circle=scale, line=angle
+        cv::Scalar(0, 165, 255),
+        cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS
     );
 
     return static_cast<int>(keypoints.size());
