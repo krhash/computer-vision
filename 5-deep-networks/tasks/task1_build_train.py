@@ -20,6 +20,7 @@ import torch.optim as optim
 
 from src.network.digit_network   import DigitNetwork
 from src.utils.device_utils      import get_device
+from tasks.read_network          import load_trained_model
 from src.data.mnist_loader       import MNISTDataLoader
 from src.data.handwritten_loader import HandwrittenLoader
 from src.training.trainer        import Trainer
@@ -174,44 +175,49 @@ def task1d_save_model(model: DigitNetwork, model_io: ModelIO) -> None:
 def task1e_evaluate_test_samples(
     device:      torch.device,
     data_loader: MNISTDataLoader,
-    model_io:    ModelIO,
     plotter:     Plotter,
 ) -> None:
     """
-    Subtask 1E: Reload saved model and run it on the first 10 test examples.
+    Subtask 1E: Reloads the saved model and runs it on the first 10 test
+    examples. Prints per-sample output values, predicted index, and true
+    label. Plots the first 9 as a 3x3 grid with predictions above each.
 
-    Prints 10 output values (2dp), predicted index, and true label for each.
-    Also plots the first 9 examples as a 3x3 grid with predictions.
+    Uses load_trained_model() from tasks/read_network.py to load the model.
+    run_on_test_samples logic lives here as it is specific to Task 1E.
 
     Args:
         device      (torch.device):    Target device.
-        data_loader (MNISTDataLoader): Provides the test loader.
-        model_io    (ModelIO):         For loading the saved model.
+        data_loader (MNISTDataLoader): Provides the unshuffled test loader.
         plotter     (Plotter):         For saving the prediction grid.
     """
     print("\n[Task 1E] Reloading model and running on first 10 test samples...")
 
-    # Reload the model from disk (fresh instance)
-    model = DigitNetwork()
-    model_io.load(model, MODEL_FILENAME)
-    model = model.to(device)
+    # Load model via shared utility (also prints model structure)
+    model, device = load_trained_model(
+        model_file = MODEL_FILENAME,
+        model_dir  = MODEL_DIR,
+        device     = device,
+    )
 
-    # Grab the first batch (unshuffled, so always the same samples)
+    # Grab the first batch — test loader is unshuffled so always same samples
     images, labels = next(iter(data_loader.test_loader))
 
-    evaluator   = Evaluator(model=model, device=device)
+    # Print per-sample output values, predicted index, and true label
+    evaluator = Evaluator(model=model, device=device)
     predictions, _ = evaluator.predict_samples(
         data   = images,
         labels = labels,
         n      = 10,
     )
 
-    # Plot first 9 as a 3x3 grid (as per spec)
+    # Plot first 9 as a 3x3 grid with predictions above each image
     plotter.plot_predictions_grid(
         images      = images,
         predictions = predictions,
         labels      = labels.tolist(),
         n           = 9,
+        filename    = "task1e_predictions.png",
+        title       = "Task 1E — First 9 Test Digits with Predictions",
     )
 
 
@@ -315,7 +321,7 @@ def main(argv: list) -> None:
     task1d_save_model(model, model_io)
 
     # --- 1E: Reload and run on first 10 test samples ---
-    task1e_evaluate_test_samples(device, data_loader, model_io, plotter)
+    task1e_evaluate_test_samples(device, data_loader, plotter)
 
     # --- 1F: Run on handwritten digits ---
     task1f_evaluate_handwritten(device, model_io, plotter)

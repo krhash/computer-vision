@@ -5,8 +5,10 @@
 #              them to greyscale, resizes to 28x28, inverts intensities to
 #              match the MNIST format (white digit on black background), and
 #              normalises using the same MNIST statistics.
+#
+# Input: one file per digit placed in data/handwritten/
+#        Named by digit: 0.png, 1.jpg, 2.png ... 9.png (any size accepted)
 
-import os
 import sys
 from pathlib import Path
 from typing import List, Tuple
@@ -29,22 +31,22 @@ class HandwrittenLoader:
     Loads and pre-processes handwritten digit images for inference.
 
     Pre-processing pipeline (per project spec):
-        1. Read image via OpenCV
+        1. Read image via OpenCV (any input size accepted)
         2. Convert to greyscale
-        3. Resize to 28x28
-        4. Invert intensities  (photos have dark digit on white background;
-           MNIST has white digit on black background)
-        5. Convert to float tensor in [0, 1]
-        6. Normalise with MNIST mean/std
+        3. Resize to 28x28 using area interpolation
+        4. Invert intensities  (photos: dark digit on white background;
+           MNIST format: white digit on black background)
+        5. Convert to normalised float tensor using MNIST mean/std
 
     Expected directory layout:
         handwritten_dir/
-            0.png  (or .jpg / .jpeg)
+            0.png  (or .jpg / .jpeg / .bmp)
             1.png
             ...
             9.png
 
     Files are loaded in sorted order so indices match digit labels.
+    The label is inferred from the first character of the filename stem.
 
     Author: Krushna Sanjay Sharma
     """
@@ -82,7 +84,8 @@ class HandwrittenLoader:
         if len(self._images) == 0:
             raise ValueError(
                 f"No supported images found in: {image_dir}\n"
-                f"Supported extensions: {self._SUPPORTED_EXTENSIONS}"
+                f"Supported extensions: {self._SUPPORTED_EXTENSIONS}\n"
+                f"Expected filenames:   0.png, 1.png ... 9.png"
             )
 
     # ------------------------------------------------------------------
@@ -130,24 +133,26 @@ class HandwrittenLoader:
             Tuple of (preprocessed tensor (1,28,28), int label).
             Returns (None, -1) if the image cannot be read.
         """
-        # Read image in greyscale directly via OpenCV
+        # Read image in greyscale directly via OpenCV (handles any input size)
         img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
 
         if img is None:
             print(f"[WARNING] Could not read image: {img_path}", file=sys.stderr)
             return None, -1
 
-        # Resize to 28x28 using area interpolation (best for downscaling)
-        img = cv2.resize(img, TARGET_SIZE, interpolation=cv2.INTER_AREA)
+        # Threshold BEFORE resizing — at full resolution Otsu cleanly separates
+        # dark digit from white background before downscaling blurs the pixels.
+        _, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        # Invert intensities: photos are dark-on-white; MNIST is white-on-black
+        # Invert: photos are dark digit on white background;
+        # MNIST format is white digit on black background.
         img = cv2.bitwise_not(img)
 
-        # Convert to float32 numpy array in [0, 1] for ToTensor
-        img = img.astype(np.float32) / 255.0
+        # Resize to 28x28 AFTER thresholding and inversion
+        img = cv2.resize(img, TARGET_SIZE, interpolation=cv2.INTER_AREA)
 
-        # Convert (H, W) float32 array to PIL-compatible uint8 for transforms
-        img_uint8 = (img * 255).astype(np.uint8)
+        # Convert to uint8 for ToTensor compatibility
+        img_uint8 = img.astype(np.uint8)
 
         # Apply normalisation transform -> tensor shape (1, 28, 28)
         tensor = self._normalise(img_uint8)
@@ -156,7 +161,6 @@ class HandwrittenLoader:
         try:
             label = int(img_path.stem[0])
         except ValueError:
-            # If filename doesn't start with a digit, label is unknown (-1)
             label = -1
 
         return tensor, label
@@ -166,30 +170,15 @@ class HandwrittenLoader:
     # ------------------------------------------------------------------
 
     def get_tensors(self) -> List[torch.Tensor]:
-        """
-        Returns all pre-processed image tensors.
-
-        Returns:
-            List of tensors, each of shape (1, 28, 28).
-        """
+        """Returns all pre-processed image tensors, each shape (1, 28, 28)."""
         return self._images
 
     def get_labels(self) -> List[int]:
-        """
-        Returns the inferred labels for each loaded image.
-
-        Returns:
-            List of int labels (0-9, or -1 if label could not be inferred).
-        """
+        """Returns inferred labels (0-9, or -1 if filename has no digit prefix)."""
         return self._labels
 
     def as_batch(self) -> torch.Tensor:
-        """
-        Stacks all image tensors into a single batched tensor.
-
-        Returns:
-            Tensor of shape (N, 1, 28, 28) where N is the number of images.
-        """
+        """Stacks all tensors into a single batch of shape (N, 1, 28, 28)."""
         return torch.stack(self._images)
 
     def __len__(self) -> int:
