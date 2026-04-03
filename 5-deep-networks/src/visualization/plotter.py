@@ -747,6 +747,170 @@ class Plotter:
         self._save_and_show(fig, filename)
 
     # ------------------------------------------------------------------
+    # Extension 1 — Pre-trained network filter analysis
+    # ------------------------------------------------------------------
+
+    def plot_pretrained_filters(
+        self,
+        filters:    list,
+        model_name: str,
+        filename:   str = "ext1_pretrained_filters.png",
+    ) -> None:
+        """
+        Visualises all filters from a pre-trained model's first conv layer.
+
+        Arranges filters in an 8-column grid (padded to fit).
+        Uses a diverging colormap (RdBu) to show positive/negative weights.
+
+        Args:
+            filters    (list): List of 2D numpy filter arrays.
+            model_name (str):  Model name for the figure title.
+            filename   (str):  Output filename.
+        """
+        n    = len(filters)
+        cols = 8
+        rows = (n + cols - 1) // cols
+
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 1.5, rows * 1.5))
+        fig.suptitle(
+            f"Extension 1 — {model_name} First Conv Layer Filters ({n} total)",
+            fontsize=12,
+        )
+
+        axes_flat = np.array(axes).flatten()
+
+        for i, f in enumerate(filters):
+            ax = axes_flat[i]
+            # Normalise each filter to [-1, 1] for consistent colour scaling
+            vmax = max(abs(f.max()), abs(f.min())) + 1e-8
+            ax.imshow(f, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(f"F{i}", fontsize=6)
+
+        for j in range(n, len(axes_flat)):
+            axes_flat[j].set_visible(False)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_pretrained_responses(
+        self,
+        filters:         list,
+        filtered_images: list,
+        model_name:      str,
+        max_show:        int = 32,
+        filename:        str = "ext1_pretrained_responses.png",
+    ) -> None:
+        """
+        Plots filter + response pairs for a pre-trained model.
+
+        Shows up to max_show filters to keep the figure manageable.
+        Layout: 8 cols, each col pair = [filter | response].
+
+        Args:
+            filters         (list): List of 2D filter arrays.
+            filtered_images (list): List of filtered image arrays.
+            model_name      (str):  Model name for title.
+            max_show        (int):  Max filters to show (default 32).
+            filename        (str):  Output filename.
+        """
+        n    = min(len(filters), max_show)
+        cols = 8
+        rows = (n + cols - 1) // cols
+
+        # 2 subrows per row: filter on top, response on bottom
+        fig, axes = plt.subplots(
+            rows * 2, cols,
+            figsize = (cols * 2, rows * 3),
+        )
+        fig.suptitle(
+            f"Extension 1 — {model_name} Filter Responses (first {n})",
+            fontsize=12,
+        )
+
+        for i in range(n):
+            col       = i % cols
+            group_row = (i // cols) * 2
+
+            # Filter weight
+            ax_f = axes[group_row, col]
+            vmax = max(abs(filters[i].max()), abs(filters[i].min())) + 1e-8
+            ax_f.imshow(filters[i], cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            ax_f.set_title(f"F{i}", fontsize=7)
+            ax_f.set_xticks([])
+            ax_f.set_yticks([])
+
+            # Filter response
+            ax_r = axes[group_row + 1, col]
+            ax_r.imshow(filtered_images[i], cmap="gray")
+            ax_r.set_xticks([])
+            ax_r.set_yticks([])
+
+        # Hide unused cells
+        for i in range(n, rows * cols):
+            col       = i % cols
+            group_row = (i // cols) * 2
+            if group_row < rows * 2:
+                axes[group_row, col].set_visible(False)
+            if group_row + 1 < rows * 2:
+                axes[group_row + 1, col].set_visible(False)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_filter_comparison(
+        self,
+        mnist_filters:     list,
+        pretrained_filters: list,
+        pretrained_name:   str,
+        filename:          str = "ext1_filter_comparison.png",
+    ) -> None:
+        """
+        Side-by-side comparison of MNIST CNN filters vs pre-trained filters.
+
+        Shows the first 10 filters from each model for direct comparison.
+
+        Args:
+            mnist_filters      (list): Our 10 MNIST conv1 filters (5x5).
+            pretrained_filters (list): Pre-trained model filters (kHxkW).
+            pretrained_name    (str):  Pre-trained model name.
+            filename           (str):  Output filename.
+        """
+        n = min(10, len(pretrained_filters))
+
+        fig, axes = plt.subplots(2, n, figsize=(n * 1.8, 4))
+        fig.suptitle(
+            f"Filter Comparison — DigitNetwork (top) vs {pretrained_name} (bottom)",
+            fontsize=11,
+        )
+
+        for i in range(n):
+            # Top row: MNIST filters
+            ax_top = axes[0, i]
+            ax_top.imshow(mnist_filters[i], cmap="viridis")
+            ax_top.set_xticks([])
+            ax_top.set_yticks([])
+            if i == 0:
+                ax_top.set_ylabel("MNIST\nconv1", fontsize=8)
+
+            # Bottom row: pre-trained filters
+            ax_bot = axes[1, i]
+            vmax = max(abs(pretrained_filters[i].max()),
+                       abs(pretrained_filters[i].min())) + 1e-8
+            ax_bot.imshow(pretrained_filters[i], cmap="RdBu_r",
+                          vmin=-vmax, vmax=vmax)
+            ax_bot.set_xticks([])
+            ax_bot.set_yticks([])
+            if i == 0:
+                ax_bot.set_ylabel(f"{pretrained_name}\nconv1", fontsize=8)
+
+            axes[0, i].set_title(f"F{i}", fontsize=8)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    # ------------------------------------------------------------------
     # Task 3+ plots added below
     # ------------------------------------------------------------------
 
