@@ -586,6 +586,167 @@ class Plotter:
         self._save_and_show(fig, filename)
 
     # ------------------------------------------------------------------
+    # Task 5B — CNN optimizer sweep plots
+    # ------------------------------------------------------------------
+
+    def plot_cnn_experiment_results(
+        self,
+        results:  list,
+        baseline: float,
+        filename: str = "task5b_cnn_results.png",
+    ) -> None:
+        """
+        Plots four subplots summarising the CNN optimizer sweep:
+            1. Accuracy vs optimizer (bar chart)
+            2. Accuracy vs learning rate per optimizer (line plot)
+            3. Accuracy vs momentum (SGD only)
+            4. Training time vs accuracy scatter (all runs)
+
+        Args:
+            results  (list):  List of CNNExperimentResult objects.
+            baseline (float): Baseline accuracy (%) for reference lines.
+            filename (str):   Output filename.
+        """
+        optimizers = ["sgd", "adam", "adamw", "rmsprop"]
+        colors     = {"sgd": "steelblue", "adam": "seagreen",
+                      "adamw": "mediumpurple", "rmsprop": "darkorange"}
+
+        def best_acc_for(field, val):
+            matches = [r.test_accuracy for r in results
+                       if getattr(r, field) == val]
+            return max(matches) if matches else 0.0
+
+        fig, axes = plt.subplots(2, 2, figsize=(13, 10))
+        fig.suptitle("Task 5B — CNN Optimizer Sweep on Fashion MNIST", fontsize=14)
+
+        # --- Plot 1: Best accuracy per optimizer ---
+        ax = axes[0, 0]
+        opt_accs = [best_acc_for("optimizer_name", o) for o in optimizers]
+        bars = ax.bar(optimizers, opt_accs,
+                      color=[colors[o] for o in optimizers], alpha=0.8)
+        ax.axhline(baseline, color="red", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Optimizer")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 1 — Optimizer")
+        ax.legend()
+        ax.grid(True, axis="y", linestyle="--", alpha=0.5)
+        for bar, acc in zip(bars, opt_accs):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() - 0.5,
+                    f"{acc:.2f}%", ha="center", va="top",
+                    color="white", fontsize=8, fontweight="bold")
+
+        # --- Plot 2: Accuracy vs LR per optimizer ---
+        ax = axes[0, 1]
+        lrs = sorted(set(r.lr for r in results))
+        for opt in optimizers:
+            opt_results = [r for r in results if r.optimizer_name == opt]
+            lr_accs = []
+            for lr in lrs:
+                matches = [r.test_accuracy for r in opt_results if r.lr == lr]
+                lr_accs.append(max(matches) if matches else None)
+            valid = [(lr, acc) for lr, acc in zip(lrs, lr_accs) if acc is not None]
+            if valid:
+                xs, ys = zip(*valid)
+                ax.plot(xs, ys, marker="o", label=opt,
+                        color=colors[opt], alpha=0.8)
+        ax.axhline(baseline, color="red", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xscale("log")
+        ax.set_xlabel("Learning Rate (log scale)")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 2 — Learning Rate per Optimizer")
+        ax.legend(fontsize=8)
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # --- Plot 3: Accuracy vs momentum (SGD only) ---
+        ax = axes[1, 0]
+        sgd_results = [r for r in results if r.optimizer_name == "sgd"]
+        momentums   = sorted(set(r.momentum for r in sgd_results))
+        mom_accs    = [best_acc_for("momentum", m) for m in momentums
+                       if any(r.optimizer_name == "sgd" and r.momentum == m
+                              for r in results)]
+        mom_vals    = [m for m in momentums
+                       if any(r.optimizer_name == "sgd" and r.momentum == m
+                              for r in results)]
+        ax.plot(mom_vals, mom_accs, marker="s", color="steelblue")
+        ax.axhline(baseline, color="red", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Momentum (SGD only)")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 3 — SGD Momentum")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # --- Plot 4: Training time vs accuracy scatter ---
+        ax = axes[1, 1]
+        for opt in optimizers:
+            opt_r = [r for r in results if r.optimizer_name == opt]
+            if opt_r:
+                ax.scatter(
+                    [r.train_time_s  for r in opt_r],
+                    [r.test_accuracy for r in opt_r],
+                    label=opt, color=colors[opt], alpha=0.7, s=50,
+                )
+        ax.axhline(baseline, color="red", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Training Time (seconds)")
+        ax.set_ylabel("Test Accuracy (%)")
+        ax.set_title("Accuracy vs Training Time (all runs)")
+        ax.legend(fontsize=8)
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_cnn_top_configs(
+        self,
+        results:  list,
+        baseline: float,
+        top_n:    int = 10,
+        filename: str = "task5b_cnn_top_configs.png",
+    ) -> None:
+        """
+        Horizontal bar chart of the top N CNN configurations by accuracy.
+
+        Args:
+            results  (list):  List of CNNExperimentResult objects.
+            baseline (float): Baseline accuracy for reference line.
+            top_n    (int):   Number of top configs to show.
+            filename (str):   Output filename.
+        """
+        sorted_results = sorted(
+            results, key=lambda r: r.test_accuracy, reverse=True
+        )[:top_n]
+
+        labels = [
+            f"{r.optimizer_name}  lr={r.lr}  mom={r.momentum}"
+            for r in sorted_results
+        ]
+        accs = [r.test_accuracy for r in sorted_results]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        bars = ax.barh(labels[::-1], accs[::-1], color="steelblue", alpha=0.8)
+        ax.axvline(baseline, color="red", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Test Accuracy (%)")
+        ax.set_title(
+            f"Task 5B — Top {top_n} CNN Configs (Fashion MNIST)", fontsize=12
+        )
+        ax.legend()
+        ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+
+        for bar, acc in zip(bars[::-1], accs[::-1]):
+            ax.text(
+                bar.get_width() - 0.2, bar.get_y() + bar.get_height() / 2,
+                f"{acc:.2f}%", va="center", ha="right",
+                color="white", fontsize=8, fontweight="bold",
+            )
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    # ------------------------------------------------------------------
     # Task 3+ plots added below
     # ------------------------------------------------------------------
 
