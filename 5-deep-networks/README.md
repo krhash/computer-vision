@@ -3,7 +3,7 @@
 **Course:** CS 5330 — Pattern Recognition & Computer Vision  
 **Date:** 2026
 
-MNIST digit recognition using CNNs and Transformers in PyTorch. Covers training, filter analysis, transfer learning on Greek letters, transformer-based classification, and automated hyperparameter experimentation.
+MNIST digit recognition using CNNs and Transformers in PyTorch. Covers training, filter analysis, transfer learning on Greek letters, transformer-based classification, and automated hyperparameter experimentation on Fashion MNIST.
 
 ---
 
@@ -11,43 +11,50 @@ MNIST digit recognition using CNNs and Transformers in PyTorch. Covers training,
 
 ```
 project5_deep_networks/
-├── main.py                        # Master pipeline (run all or selected tasks)
+├── main.py                            # Master pipeline (run all or selected tasks)
 ├── requirements.txt
 │
-├── tasks/                         # Thin orchestrators — one file per task
-│   ├── task1_build_train.py       # 1A–1F: build, train, save, evaluate
-│   ├── task2_examine.py           # 2A–2B: filter analysis + cv2.filter2D
-│   ├── task3_greek.py             # Transfer learning on Greek letters
-│   ├── task4_transformer.py       # Drop-in transformer replacement
-│   └── task5_experiment.py        # Hyperparameter sweep (50–100 variants)
+├── tasks/
+│   ├── task1_build_train.py           # 1A–1F: build, train, save, evaluate CNN
+│   ├── task2_examine.py               # 2A–2B: filter analysis + cv2.filter2D
+│   ├── task3_greek.py                 # Transfer learning on Greek letters
+│   ├── task4_transformer.py           # Transformer network drop-in replacement
+│   ├── task5_experiment.py            # Transformer hyperparameter sweep (Fashion MNIST)
+│   ├── task5b_cnn_optimizer.py        # CNN optimizer sweep (Fashion MNIST)
+│   └── read_network.py                # Shared utility: load_trained_model()
 │
 ├── src/
 │   ├── network/
-│   │   ├── digit_network.py       # DigitNetwork — CNN architecture
-│   │   └── transformer_network.py # NetTransformer — ViT-style architecture
+│   │   ├── digit_network.py           # DigitNetwork — CNN architecture
+│   │   └── transformer_network.py    # NetTransformer + NetConfig + PatchEmbedding
 │   ├── data/
-│   │   ├── mnist_loader.py        # MNISTDataLoader
-│   │   ├── greek_loader.py        # GreekDataLoader + GreekTransform
-│   │   └── handwritten_loader.py  # HandwrittenLoader (your digit photos)
+│   │   ├── mnist_loader.py            # MNISTDataLoader
+│   │   ├── fashion_loader.py          # FashionMNISTLoader
+│   │   ├── greek_loader.py            # GreekDataLoader + GreekTransform
+│   │   └── handwritten_loader.py      # HandwrittenLoader (your digit photos)
 │   ├── training/
-│   │   ├── trainer.py             # Trainer — epoch-level training loop
-│   │   └── transfer_trainer.py    # TransferTrainer — freeze + replace layer
+│   │   ├── trainer.py                 # Trainer — epoch-level training loop
+│   │   └── transfer_trainer.py        # TransferTrainer — freeze + replace layer
 │   ├── evaluation/
-│   │   ├── evaluator.py           # Evaluator — accuracy + per-sample output
-│   │   └── filter_analyzer.py     # FilterAnalyzer — conv weights + filter2D
-│   ├── visualization/
-│   │   └── plotter.py             # Plotter — all matplotlib figures
+│   │   ├── evaluator.py               # Evaluator — accuracy + per-sample output
+│   │   └── filter_analyzer.py         # FilterAnalyzer — conv weights + filter2D
 │   ├── experiment/
-│   │   ├── experiment_config.py   # ExperimentConfig — sweep dimensions
-│   │   └── experiment_runner.py   # ExperimentRunner — executes + logs sweep
+│   │   ├── experiment_config.py       # ExperimentConfig — transformer sweep dims
+│   │   ├── experiment_runner.py       # ExperimentRunner — transformer sweep executor
+│   │   ├── cnn_experiment_config.py   # CNNExperimentConfig — optimizer sweep dims
+│   │   └── cnn_experiment_runner.py   # CNNExperimentRunner — optimizer sweep executor
+│   ├── visualization/
+│   │   └── plotter.py                 # Plotter — all matplotlib figures
 │   └── utils/
-│       └── model_io.py            # ModelIO — save/load .pth files
+│       ├── model_io.py                # ModelIO — save/load .pth files
+│       └── device_utils.py            # get_device() — auto-detect CUDA/MPS/CPU
 │
 ├── data/
-│   ├── greek_letters/             # alpha/, beta/, gamma/ subdirectories
-│   └── handwritten/               # Your digit photos: 0.png – 9.png
-├── models/                        # Saved .pth files (auto-created)
-└── outputs/                       # Saved plots as PNG (auto-created)
+│   ├── greek_train/                   # alpha/, beta/, gamma/ subdirectories
+│   ├── greek_custom/                  # Your own Greek letter photos
+│   └── handwritten/                   # Your digit photos: 0.jpg – 9.jpg
+├── models/                            # Saved .pth files (auto-created)
+└── outputs/                           # Saved plots as PNG + CSV results (auto-created)
 ```
 
 ---
@@ -77,12 +84,8 @@ pip install -r requirements.txt
 
 **CUDA-enabled (recommended — check version with `nvidia-smi`):**
 ```bash
-# CUDA 12.1
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip install -r requirements.txt
-
-# CUDA 11.8
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# CUDA 12.4 / 13.0
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
 ```
 
@@ -92,22 +95,34 @@ python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_
 ```
 
 ### 3. Run individual tasks
+
 ```bash
-# Task 1 — Build, train, save, evaluate (subtasks 1A–1F)
+# Task 1 — Build, train, save, evaluate CNN (subtasks 1A–1F)
 python tasks/task1_build_train.py                  # defaults: 5 epochs, batch=64
 python tasks/task1_build_train.py 10 128           # override: 10 epochs, batch=128
+
+# Task 1E — Read network and run on test set  [requires models/mnist_cnn.pth]
+python tasks/read_network.py
+python tasks/read_network.py --model mnist_cnn.pth --model-dir ./models
 
 # Task 2 — Examine filters and filter effects  [requires models/mnist_cnn.pth]
 python tasks/task2_examine.py
 
 # Task 3 — Transfer learning on Greek letters  [requires models/mnist_cnn.pth]
 python tasks/task3_greek.py
+python tasks/task3_greek.py --epochs 150
 
-# Task 4 — Transformer network                 [standalone]
+# Task 4 — Transformer network
 python tasks/task4_transformer.py
+python tasks/task4_transformer.py --epochs 15 --batch-size 64
 
-# Task 5 — Hyperparameter experiment sweep     [standalone]
+# Task 5A — Transformer hyperparameter sweep on Fashion MNIST
 python tasks/task5_experiment.py
+python tasks/task5_experiment.py --epochs 10
+
+# Task 5B — CNN optimizer sweep on Fashion MNIST
+python tasks/task5b_cnn_optimizer.py
+python tasks/task5b_cnn_optimizer.py --epochs 5
 ```
 
 ### 4. Run the full pipeline
@@ -117,7 +132,9 @@ python main.py --task 1            # runs Task 1 only
 python main.py --task 1 2          # runs Tasks 1 and 2
 ```
 
-> **Note:** Tasks 2 and 3 depend on `models/mnist_cnn.pth` produced by Task 1. Always run Task 1 first.
+> **Task dependencies:**
+> - Tasks 2 and 3 require `models/mnist_cnn.pth` — run Task 1 first
+> - Tasks 4, 5A, 5B are fully standalone
 
 ---
 
@@ -127,6 +144,22 @@ python main.py --task 1 2          # runs Tasks 1 and 2
 |---|---|---|---|---|
 | `task1_build_train.py` | `argv[1]` | int | `5` | Number of training epochs |
 | `task1_build_train.py` | `argv[2]` | int | `64` | Training batch size |
+| `read_network.py` | `--model` | str | `mnist_cnn.pth` | Model filename |
+| `read_network.py` | `--model-dir` | str | `./models` | Model directory |
+| `task2_examine.py` | `--model` | str | `mnist_cnn.pth` | Model filename |
+| `task2_examine.py` | `--model-dir` | str | `./models` | Model directory |
+| `task2_examine.py` | `--data-dir` | str | `./data` | MNIST data directory |
+| `task3_greek.py` | `--model` | str | `mnist_cnn.pth` | Pre-trained model filename |
+| `task3_greek.py` | `--greek-dir` | str | `./data/greek_train` | Greek letter dataset directory |
+| `task3_greek.py` | `--custom-dir` | str | `./data/greek_custom` | Your Greek letter photos |
+| `task3_greek.py` | `--epochs` | int | `50` | Number of training epochs |
+| `task4_transformer.py` | `--epochs` | int | `15` | Number of training epochs |
+| `task4_transformer.py` | `--batch-size` | int | `64` | Training batch size |
+| `task4_transformer.py` | `--model-dir` | str | `./models` | Model save directory |
+| `task5_experiment.py` | `--epochs` | int | `10` | Epochs per sweep run |
+| `task5_experiment.py` | `--output-dir` | str | `./outputs` | Output directory |
+| `task5b_cnn_optimizer.py` | `--epochs` | int | `5` | Epochs per sweep run |
+| `task5b_cnn_optimizer.py` | `--output-dir` | str | `./outputs` | Output directory |
 | `main.py` | `--task` | int(s) | `1 2 3 4 5` | Task number(s) to run |
 
 ---
@@ -137,79 +170,121 @@ python main.py --task 1 2          # runs Tasks 1 and 2
 | Class | File | Description |
 |---|---|---|
 | `DigitNetwork` | `digit_network.py` | CNN: conv→pool→conv→dropout→pool→fc→fc. Input `(N,1,28,28)`, output log-probs `(N,10)` |
-| `NetTransformer` | `transformer_network.py` | Patch-based transformer. Drop-in replacement for `DigitNetwork` with identical I/O |
+| `NetTransformer` | `transformer_network.py` | Patch-based ViT-style transformer. Drop-in replacement for `DigitNetwork` |
+| `NetConfig` | `transformer_network.py` | Dataclass holding all transformer hyperparameters |
+| `PatchEmbedding` | `transformer_network.py` | Divides image into patches, projects each to embedding space |
 
 ### Data — `src/data/`
 | Class | File | Description |
 |---|---|---|
-| `MNISTDataLoader` | `mnist_loader.py` | Downloads MNIST, returns shuffled train loader and unshuffled test loader |
-| `HandwrittenLoader` | `handwritten_loader.py` | Reads your digit photos, applies greyscale→resize→invert→normalise pipeline |
-| `GreekDataLoader` | `greek_loader.py` | Loads `alpha/beta/gamma` folders via `ImageFolder`; applies `GreekTransform` |
-| `GreekTransform` | `greek_loader.py` | Converts 133×133 RGB Greek images to 28×28 greyscale inverted MNIST-format tensors |
+| `MNISTDataLoader` | `mnist_loader.py` | Downloads MNIST, returns shuffled train + unshuffled test loader |
+| `FashionMNISTLoader` | `fashion_loader.py` | Same interface as MNISTDataLoader but for Fashion MNIST |
+| `HandwrittenLoader` | `handwritten_loader.py` | Reads digit photos: greyscale → Otsu threshold → invert → resize 28×28 |
+| `GreekDataLoader` | `greek_loader.py` | Loads `alpha/beta/gamma` folders via `ImageFolder` |
+| `GreekTransform` | `greek_loader.py` | Converts 133×133 RGB Greek images to 28×28 greyscale MNIST-format tensors |
 
 ### Training — `src/training/`
 | Class | File | Description |
 |---|---|---|
-| `Trainer` | `trainer.py` | Runs one epoch, accumulates loss/accuracy history, logs per-batch progress |
-| `TransferTrainer` | `transfer_trainer.py` | Freezes all weights, replaces the final `fc2` layer, trains only the new layer |
+| `Trainer` | `trainer.py` | Runs one epoch, accumulates loss/accuracy history |
+| `TransferTrainer` | `transfer_trainer.py` | Freezes all weights, replaces `fc2` with `Linear(50, N)` |
 
 ### Evaluation — `src/evaluation/`
 | Class | File | Description |
 |---|---|---|
-| `Evaluator` | `evaluator.py` | Computes test accuracy over a full DataLoader; `predict_samples()` prints per-sample output values, predicted index, and true label |
-| `FilterAnalyzer` | `filter_analyzer.py` | Extracts `conv1` weights `[10,1,5,5]`; applies each filter via `cv2.filter2D` |
-
-### Utilities — `src/utils/` and `src/visualization/`
-| Class | File | Description |
-|---|---|---|
-| `ModelIO` | `model_io.py` | `save(model, filename)` / `load(model, filename)` for `.pth` state dicts |
-| `Plotter` | `plotter.py` | All figures: sample grid, training curves, prediction grid, filter plots, experiment results. Saves PNG to `outputs/` |
+| `Evaluator` | `evaluator.py` | Test accuracy over DataLoader; `predict_samples()` prints per-sample output values |
+| `FilterAnalyzer` | `filter_analyzer.py` | Extracts `conv1` weights `[10,1,5,5]`; applies filters via `cv2.filter2D` |
 
 ### Experiment — `src/experiment/`
 | Class | File | Description |
 |---|---|---|
-| `ExperimentConfig` | `experiment_config.py` | Defines sweep dimensions (epochs, batch size, dropout, filter count, etc.) |
-| `ExperimentRunner` | `experiment_runner.py` | Iterates configs, trains each variant, logs accuracy/time, plots summary |
+| `ExperimentConfig` | `experiment_config.py` | Generates transformer sweep configs (patch_size × embed_dim × depth) |
+| `ExperimentRunner` | `experiment_runner.py` | Trains each transformer variant, saves CSV incrementally |
+| `CNNExperimentConfig` | `cnn_experiment_config.py` | Generates CNN optimizer sweep configs |
+| `CNNExperimentRunner` | `cnn_experiment_runner.py` | Trains each CNN variant, saves CSV incrementally |
+
+### Utilities
+| Class | File | Description |
+|---|---|---|
+| `ModelIO` | `utils/model_io.py` | `save(model, filename)` / `load(model, filename)` for `.pth` state dicts |
+| `get_device()` | `utils/device_utils.py` | Auto-detects CUDA / MPS / CPU via `torch.accelerator` |
+| `Plotter` | `visualization/plotter.py` | All figures: training curves, filter grids, prediction grids, sweep results |
 
 ---
 
 ## Data Setup
 
 ### Handwritten digits (Task 1F)
-Place your own digit photos in `data/handwritten/`. Name files by digit:
 ```
-data/handwritten/0.png  1.png  2.png  ... 9.png
+data/handwritten/
+    0.jpg  1.jpg  2.jpg  ...  9.jpg    ← one file per digit, any size
 ```
-Use thick lines (marker/sharpie), white background. Images are auto-resized to 28×28 and inverted.
+Use thick marker lines, white background. Images are auto-resized to 28×28 and inverted.
 
 ### Greek letters (Task 3)
 ```
-data/greek_letters/
-    alpha/   *.png
+data/greek_train/
+    alpha/   *.png    (provided dataset — 9 images each)
     beta/    *.png
     gamma/   *.png
+
+data/greek_custom/                     ← your own photos (~128×128)
+    0_1.jpg  0_2.jpg  ...              ← 0 = alpha
+    1_1.jpg  1_2.jpg  ...              ← 1 = beta
+    2_1.jpg  2_2.jpg  ...              ← 2 = gamma
 ```
-Images should be ~128×128. The `GreekTransform` handles all preprocessing.
 
 ---
 
 ## Output Files
 
-All figures are saved to `outputs/` automatically:
+All figures saved to `outputs/`, models saved to `models/`:
 
-| File | Generated by | Description |
+| File | Task | Description |
 |---|---|---|
-| `task1a_sample_digits.png` | Task 1A | First 6 MNIST test digits |
-| `task1c_training_curves.png` | Task 1C | Loss and accuracy per epoch |
-| `task1e_predictions.png` | Task 1E | 3×3 grid with predicted labels |
-| `task1f_handwritten.png` | Task 1F | Handwritten digits + predictions |
-| `task2a_filters.png` | Task 2A | 10 conv1 filter weight visualisations |
-| `task2b_filter_effects.png` | Task 2B | 10 filtered versions of first training image |
-| `task3_training_curve.png` | Task 3 | Greek letter transfer learning loss |
-| `task4_transformer_curves.png` | Task 4 | Transformer training curves |
-| `task5_experiment_results.png` | Task 5 | Sweep results across all dimensions |
+| `task1a_sample_digits.png` | 1A | First 6 MNIST test digits |
+| `task1c_training_curves.png` | 1C | CNN loss and accuracy per epoch |
+| `task1e_predictions.png` | 1E | 3×3 grid with predicted labels |
+| `task1f_handwritten.png` | 1F | Handwritten digits + predictions |
+| `task2a_filters.png` | 2A | 10 conv1 filter weight visualisations |
+| `task2b_filter_effects.png` | 2B | Filter + response pairs (5×4 grid) |
+| `task3_training_curve.png` | 3 | Greek letter transfer learning loss |
+| `task3_custom_greek.png` | 3 | Custom Greek letter predictions |
+| `task4_transformer_curves.png` | 4 | Transformer training curves |
+| `task4_predictions.png` | 4 | Transformer 3×3 prediction grid |
+| `task5_experiment_results.png` | 5A | Transformer sweep — 4-subplot figure |
+| `task5_top_configs.png` | 5A | Top 10 transformer configs bar chart |
+| `task5_results.csv` | 5A | Full transformer sweep log (55 runs) |
+| `task5b_cnn_results.png` | 5B | CNN optimizer sweep — 4-subplot figure |
+| `task5b_cnn_top_configs.png` | 5B | Top 10 CNN configs bar chart |
+| `task5b_cnn_results.csv` | 5B | Full CNN optimizer sweep log (26 runs) |
+| `models/mnist_cnn.pth` | 1D | Trained CNN weights |
+| `models/greek_transfer.pth` | 3 | Transfer-learned Greek letter model |
+| `models/mnist_transformer.pth` | 4 | Trained transformer weights |
 
-Saved models go to `models/`:
-- `mnist_cnn.pth` — trained CNN (Task 1D)
-- `greek_transfer.pth` — fine-tuned transfer model (Task 3)
-- `mnist_transformer.pth` — trained transformer (Task 4)
+---
+
+## Experiment Results Summary
+
+### Task 5A — Transformer Sweep on Fashion MNIST (55 runs)
+
+| Dimension | Range | Best Value | Finding |
+|---|---|---|---|
+| patch_size | 2, 4, 7, 14 | **4** | patch=2 worst (too many noisy tokens) |
+| embed_dim | 16, 32, 48, 96 | **48** | embed=96 adds time, no accuracy gain |
+| depth | 1, 2, 4, 6 | **4** (baseline) | depth=2 nearly as good, 31% faster |
+
+Baseline: **89.49%** — Best found: **89.49%** (baseline already well-tuned)
+Best efficiency: depth=2 → 88.96% in 260s vs baseline 375s
+
+### Task 5B — CNN Optimizer Sweep on Fashion MNIST (26 runs)
+
+| Optimizer | Best LR | Best Accuracy |
+|---|---|---|
+| SGD | 0.01, mom=0.9 | 87.94% |
+| Adam | 0.001 | 88.93% |
+| **AdamW** | **0.001** | **89.32%** |
+| RMSprop | 0.001 | 87.74% |
+
+Baseline (SGD lr=0.01 mom=0.5): **86.29%** — Best: **AdamW lr=0.001 → 89.32%** (+3.03%)
+Key finding: lr=0.1 causes complete divergence for all adaptive optimizers. SGD momentum=0.99 diverges catastrophically.
