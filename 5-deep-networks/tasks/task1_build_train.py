@@ -19,6 +19,7 @@ import torch
 import torch.optim as optim
 
 from src.network.digit_network   import DigitNetwork
+from src.utils.device_utils      import get_device
 from src.data.mnist_loader       import MNISTDataLoader
 from src.data.handwritten_loader import HandwrittenLoader
 from src.training.trainer        import Trainer
@@ -291,9 +292,8 @@ def main(argv: list) -> None:
     print(f"  Epochs: {num_epochs}  |  Batch size: {batch_size}")
     print("=" * 60)
 
-    # Detect device (GPU if available, otherwise CPU)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"\n  Device: {device}")
+    # Auto-detect the best available accelerator (CUDA, MPS, or CPU)
+    device = get_device()
 
     # Shared utility instances
     plotter  = Plotter(output_dir=OUTPUT_DIR, show=True)

@@ -60,3 +60,6 @@ Thumbs.db
 *.bak
 /1-video-special-effects/runtime
 /5-deep-networks/.venv
+/5-deep-networks/src/__pycache__
+__pycache__/
+/5-deep-networks/data
