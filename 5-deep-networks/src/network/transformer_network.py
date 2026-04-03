@@ -1,7 +1,7 @@
 # src/network/transformer_network.py
 # Project 5: Recognition using Deep Networks
 # Author: Krushna Sanjay Sharma
-# Modified from source code by Bruce A. Maxwell and Andy Zhao, Spring 2026
+# Modified from source code by Prof. Bruce A. Maxwell and Andy Zhao, Spring 2026
 # Description: Vision Transformer (ViT-style) network for MNIST digit
 #              recognition. Drop-in replacement for DigitNetwork —
 #              identical input (N, 1, 28, 28) and output (N, 10) interface.

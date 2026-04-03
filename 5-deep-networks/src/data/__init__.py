@@ -4,3 +4,4 @@
 from .mnist_loader       import MNISTDataLoader
 from .handwritten_loader import HandwrittenLoader
 from .greek_loader       import GreekDataLoader, GreekTransform
+from .fashion_loader     import FashionMNISTLoader

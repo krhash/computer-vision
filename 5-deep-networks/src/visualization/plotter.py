@@ -456,6 +456,136 @@ class Plotter:
         )
 
     # ------------------------------------------------------------------
+    # Task 5 — Experiment sweep results
+    # ------------------------------------------------------------------
+
+    def plot_experiment_results(
+        self,
+        results:  list,
+        baseline: float,
+        filename: str = "task5_experiment_results.png",
+    ) -> None:
+        """
+        Plots four subplots summarising the hyperparameter sweep:
+            1. Accuracy vs patch_size   (dim 1 sweep)
+            2. Accuracy vs embed_dim    (dim 2 sweep)
+            3. Accuracy vs depth        (dim 3 sweep)
+            4. Training time vs accuracy scatter (all runs)
+
+        Args:
+            results  (list):  List of ExperimentResult objects.
+            baseline (float): Baseline accuracy (%) for reference lines.
+            filename (str):   Output filename.
+        """
+        import numpy as np
+
+        # Extract fields
+        patch_sizes  = sorted(set(r.patch_size  for r in results))
+        embed_dims   = sorted(set(r.embed_dim   for r in results))
+        depths       = sorted(set(r.depth       for r in results))
+
+        def best_acc_for(field, val):
+            """Returns the best accuracy across all runs with field==val."""
+            matches = [r.test_accuracy for r in results
+                       if getattr(r, field) == val]
+            return max(matches) if matches else 0.0
+
+        fig, axes = plt.subplots(2, 2, figsize=(13, 10))
+        fig.suptitle("Task 5 — Hyperparameter Sweep on Fashion MNIST", fontsize=14)
+
+        # --- Plot 1: Accuracy vs patch_size ---
+        ax = axes[0, 0]
+        accs = [best_acc_for("patch_size", p) for p in patch_sizes]
+        ax.plot(patch_sizes, accs, marker="o", color="steelblue")
+        ax.axhline(baseline, color="darkorange", linestyle="--", label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Patch Size")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 1 — Patch Size")
+        ax.set_xticks(patch_sizes)
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # --- Plot 2: Accuracy vs embed_dim ---
+        ax = axes[0, 1]
+        accs = [best_acc_for("embed_dim", e) for e in embed_dims]
+        ax.plot(embed_dims, accs, marker="s", color="seagreen")
+        ax.axhline(baseline, color="darkorange", linestyle="--", label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Embedding Dimension")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 2 — Embedding Dimension")
+        ax.set_xticks(embed_dims)
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # --- Plot 3: Accuracy vs depth ---
+        ax = axes[1, 0]
+        accs = [best_acc_for("depth", d) for d in depths]
+        ax.plot(depths, accs, marker="^", color="mediumpurple")
+        ax.axhline(baseline, color="darkorange", linestyle="--", label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Transformer Depth (layers)")
+        ax.set_ylabel("Best Test Accuracy (%)")
+        ax.set_title("Dimension 3 — Transformer Depth")
+        ax.set_xticks(depths)
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # --- Plot 4: Training time vs accuracy scatter ---
+        ax = axes[1, 1]
+        times = [r.train_time_s   for r in results]
+        accs  = [r.test_accuracy  for r in results]
+        ax.scatter(times, accs, alpha=0.6, color="steelblue", s=40)
+        ax.axhline(baseline, color="darkorange", linestyle="--", label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Training Time (seconds)")
+        ax.set_ylabel("Test Accuracy (%)")
+        ax.set_title("Accuracy vs Training Time (all runs)")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_top_configs(
+        self,
+        results:  list,
+        baseline: float,
+        top_n:    int = 10,
+        filename: str = "task5_top_configs.png",
+    ) -> None:
+        """
+        Horizontal bar chart of the top N configurations by accuracy.
+
+        Args:
+            results  (list):  List of ExperimentResult objects.
+            baseline (float): Baseline accuracy for reference line.
+            top_n    (int):   Number of top configs to show.
+            filename (str):   Output filename.
+        """
+        # Sort by accuracy descending, take top N
+        sorted_results = sorted(results, key=lambda r: r.test_accuracy, reverse=True)
+        top = sorted_results[:top_n]
+
+        labels = [f"p={r.patch_size} e={r.embed_dim} d={r.depth}" for r in top]
+        accs   = [r.test_accuracy for r in top]
+
+        fig, ax = plt.subplots(figsize=(9, 6))
+        bars = ax.barh(labels[::-1], accs[::-1], color="steelblue", alpha=0.8)
+        ax.axvline(baseline, color="darkorange", linestyle="--",
+                   label=f"Baseline {baseline:.2f}%")
+        ax.set_xlabel("Test Accuracy (%)")
+        ax.set_title(f"Task 5 — Top {top_n} Configurations (Fashion MNIST)", fontsize=12)
+        ax.legend()
+        ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+
+        # Annotate bars with accuracy value
+        for bar, acc in zip(bars[::-1], accs[::-1]):
+            ax.text(bar.get_width() - 0.3, bar.get_y() + bar.get_height() / 2,
+                    f"{acc:.2f}%", va="center", ha="right",
+                    color="white", fontsize=8, fontweight="bold")
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    # ------------------------------------------------------------------
     # Task 3+ plots added below
     # ------------------------------------------------------------------
 
