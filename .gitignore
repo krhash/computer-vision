@@ -59,3 +59,4 @@ Thumbs.db
 *.tmp
 *.bak
 /1-video-special-effects/runtime
+/5-deep-networks/.venv
