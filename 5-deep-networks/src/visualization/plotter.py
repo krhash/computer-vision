@@ -425,6 +425,37 @@ class Plotter:
         self._save_and_show(fig, filename)
 
     # ------------------------------------------------------------------
+    # Task 4 — Transformer training curves
+    # ------------------------------------------------------------------
+
+    def plot_transformer_curves(
+        self,
+        train_losses:     list,
+        test_losses:      list,
+        train_accuracies: list,
+        test_accuracies:  list,
+        filename:         str = "task4_transformer_curves.png",
+    ) -> None:
+        """
+        Plots training/test loss and accuracy curves for the transformer.
+        Reuses the same layout as plot_training_curves (Task 1C).
+
+        Args:
+            train_losses     (list): Per-epoch training loss.
+            test_losses      (list): Per-epoch test loss.
+            train_accuracies (list): Per-epoch training accuracy (%).
+            test_accuracies  (list): Per-epoch test accuracy (%).
+            filename         (str):  Output filename.
+        """
+        self.plot_training_curves(
+            train_losses     = train_losses,
+            test_losses      = test_losses,
+            train_accuracies = train_accuracies,
+            test_accuracies  = test_accuracies,
+            filename         = filename,
+        )
+
+    # ------------------------------------------------------------------
     # Task 3+ plots added below
     # ------------------------------------------------------------------
 
