@@ -911,6 +911,134 @@ class Plotter:
         self._save_and_show(fig, filename)
 
     # ------------------------------------------------------------------
+    # Extension 2 — Gabor filter bank plots
+    # ------------------------------------------------------------------
+
+    def plot_gabor_filters(
+        self,
+        filters:  np.ndarray,
+        filename: str = "ext2_gabor_filters.png",
+        title:    str = "Extension 2 — Gabor Filter Bank (conv1 weights)",
+    ) -> None:
+        """
+        Plots the 10 Gabor filters in a 2x5 grid.
+
+        Args:
+            filters  (ndarray): Shape (10, 5, 5).
+            filename (str):     Output filename.
+            title    (str):     Figure title.
+        """
+        fig, axes = plt.subplots(2, 5, figsize=(10, 4))
+        fig.suptitle(title, fontsize=12)
+
+        axes_flat = np.array(axes).flatten()
+        for i, f in enumerate(filters):
+            ax = axes_flat[i]
+            ax.imshow(f, cmap="RdBu_r",
+                      vmin=-abs(f).max(), vmax=abs(f).max())
+            ax.set_title(f"F{i}\nθ={i//2*36}° ψ={'0' if i%2==0 else '90°'}",
+                         fontsize=7)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_gabor_vs_learned(
+        self,
+        gabor_filters:  np.ndarray,
+        learned_filters: list,
+        filename:       str = "ext2_gabor_vs_learned.png",
+    ) -> None:
+        """
+        Side-by-side comparison: Gabor filters (top) vs learned filters (bottom).
+
+        Args:
+            gabor_filters   (ndarray): Shape (10, 5, 5).
+            learned_filters (list):    List of 10 numpy arrays (5, 5).
+            filename        (str):     Output filename.
+        """
+        n   = 10
+        fig, axes = plt.subplots(2, n, figsize=(n * 1.8, 4))
+        fig.suptitle(
+            "Extension 2 — Gabor Filters (top) vs Learned MNIST Filters (bottom)",
+            fontsize=11,
+        )
+
+        for i in range(n):
+            # Top: Gabor filter
+            ax_g = axes[0, i]
+            vmax = abs(gabor_filters[i]).max()
+            ax_g.imshow(gabor_filters[i], cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            ax_g.set_xticks([])
+            ax_g.set_yticks([])
+            if i == 0:
+                ax_g.set_ylabel("Gabor", fontsize=8)
+
+            # Bottom: learned filter
+            ax_l = axes[1, i]
+            ax_l.imshow(learned_filters[i], cmap="viridis")
+            ax_l.set_xticks([])
+            ax_l.set_yticks([])
+            if i == 0:
+                ax_l.set_ylabel("Learned", fontsize=8)
+
+            axes[0, i].set_title(f"F{i}", fontsize=8)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    def plot_gabor_training_curves(
+        self,
+        gabor_losses:     list,
+        gabor_accs:       list,
+        learned_losses:   list,
+        learned_accs:     list,
+        filename:         str = "ext2_training_curves.png",
+    ) -> None:
+        """
+        Plots training curves for Gabor network vs original learned network.
+
+        Args:
+            gabor_losses   (list): Per-epoch training loss (Gabor).
+            gabor_accs     (list): Per-epoch training accuracy (Gabor).
+            learned_losses (list): Per-epoch training loss (learned).
+            learned_accs   (list): Per-epoch training accuracy (learned).
+            filename       (str):  Output filename.
+        """
+        epochs = range(1, len(gabor_losses) + 1)
+
+        fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(12, 5))
+        fig.suptitle(
+            "Extension 2 — Gabor Network vs Learned Network", fontsize=13
+        )
+
+        # Loss
+        ax_loss.plot(epochs, gabor_losses,   color="steelblue",
+                     marker="o", label="Gabor conv1 (frozen)")
+        ax_loss.plot(epochs, learned_losses, color="darkorange",
+                     marker="s", label="Learned conv1")
+        ax_loss.set_xlabel("Epoch")
+        ax_loss.set_ylabel("Avg NLL Loss")
+        ax_loss.set_title("Training Loss")
+        ax_loss.legend()
+        ax_loss.grid(True, linestyle="--", alpha=0.5)
+
+        # Accuracy
+        ax_acc.plot(epochs, gabor_accs,   color="steelblue",
+                    marker="o", label="Gabor conv1 (frozen)")
+        ax_acc.plot(epochs, learned_accs, color="darkorange",
+                    marker="s", label="Learned conv1")
+        ax_acc.set_xlabel("Epoch")
+        ax_acc.set_ylabel("Accuracy (%)")
+        ax_acc.set_title("Training Accuracy")
+        ax_acc.legend()
+        ax_acc.grid(True, linestyle="--", alpha=0.5)
+
+        plt.tight_layout()
+        self._save_and_show(fig, filename)
+
+    # ------------------------------------------------------------------
     # Task 3+ plots added below
     # ------------------------------------------------------------------
 
