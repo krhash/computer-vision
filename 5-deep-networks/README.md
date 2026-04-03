@@ -234,9 +234,70 @@ data/greek_custom/                     ← your own photos (~128×128)
     2_1.jpg  2_2.jpg  ...              ← 2 = gamma
 ```
 
+## Extensions (Extra Credit)
+
+### Extension 1 — Pre-trained Network Conv Layer Analysis
+Loads a pre-trained torchvision model and analyses its first conv layer,
+mirroring Task 2 but on ImageNet-trained filters.
+
+```bash
+python tasks/ext1_pretrained_analysis.py                    # ResNet18 (default)
+python tasks/ext1_pretrained_analysis.py --model vgg16
+python tasks/ext1_pretrained_analysis.py --model alexnet
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--model` | `resnet18` | Model: resnet18, vgg16, alexnet, resnet50 |
+| `--data-dir` | `./data` | MNIST data directory |
+| `--output-dir` | `./outputs` | Output directory |
+
+Outputs: `ext1_pretrained_filters.png`, `ext1_pretrained_responses.png`, `ext1_filter_comparison.png`
+
 ---
 
-## Output Files
+### Extension 2 — Gabor Filter Bank as First Conv Layer
+Replaces `conv1` with hand-crafted Gabor filters, freezes it, and retrains
+only `conv2` + FC layers. Compares accuracy against the fully learned network.
+
+```bash
+python tasks/ext2_gabor_network.py                          # default settings
+python tasks/ext2_gabor_network.py --epochs 10 --sigma 1.5 --gamma 0.5
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--epochs` | `10` | Training epochs |
+| `--sigma` | `1.5` | Gabor Gaussian envelope std |
+| `--gamma` | `0.5` | Gabor spatial aspect ratio |
+| `--data-dir` | `./data` | MNIST data directory |
+| `--output-dir` | `./outputs` | Output directory |
+
+Result: Gabor network **99.02%** vs Learned **99.15%** — only 0.13% difference.
+Outputs: `ext2_gabor_filters.png`, `ext2_gabor_vs_learned.png`, `ext2_training_curves.png`
+
+---
+
+### Extension 3 — Live Webcam Digit Recognition
+Real-time digit recognition using a trained network and your webcam.
+Hold a digit inside the green box. The network predicts in real time.
+
+```bash
+python tasks/ext3_live_recognition.py                       # default webcam
+python tasks/ext3_live_recognition.py --camera 1            # alternate camera
+python tasks/ext3_live_recognition.py --model gabor_network.pth  # use Gabor network
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--camera` | `0` | Webcam index |
+| `--model` | `mnist_cnn.pth` | Model file to use |
+| `--model-dir` | `./models` | Model directory |
+| `--output-dir` | `./outputs` | Screenshot save directory |
+
+Controls: `Q` quit · `S` save screenshot · `R` reset display
+
+
 
 All figures saved to `outputs/`, models saved to `models/`:
 
