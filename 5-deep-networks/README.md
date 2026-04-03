@@ -69,8 +69,26 @@ venv\Scripts\activate
 ```
 
 ### 2. Install dependencies
+
+**CPU only:**
 ```bash
 pip install -r requirements.txt
+```
+
+**CUDA-enabled (recommended — check version with `nvidia-smi`):**
+```bash
+# CUDA 12.1
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt
+
+# CUDA 11.8
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+```
+
+**Verify CUDA is detected:**
+```bash
+python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
 ```
 
 ### 3. Run individual tasks
