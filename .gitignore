@@ -48,6 +48,7 @@ Makefile
 !/5-deep-networks/data/greek_train/alpha/*.png
 !/5-deep-networks/data/greek_train/beta/*.png
 !/5-deep-networks/data/greek_train/gamma/*.png
+!/5-deep-networks/report/images/*.png
 
 # OS files
 .DS_Store
