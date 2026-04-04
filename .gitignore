@@ -41,6 +41,13 @@ Makefile
 !data/images/sample.jpg
 !report/images/*.jpg
 !report/images/*.png
+!/5-deep-networks/outputs/*.png
+!/5-deep-networks/data/greek_custom/*.png
+!/5-deep-networks/data/greek_custom/*.jpg
+!/5-deep-networks/data/handwritten/*.png
+!/5-deep-networks/data/greek_train/alpha/*.png
+!/5-deep-networks/data/greek_train/beta/*.png
+!/5-deep-networks/data/greek_train/gamma/*.png
 
 # OS files
 .DS_Store
@@ -62,4 +69,5 @@ Thumbs.db
 /5-deep-networks/.venv
 /5-deep-networks/src/__pycache__
 __pycache__/
-/5-deep-networks/data
+
+/5-deep-networks/data/FashionMNIST
