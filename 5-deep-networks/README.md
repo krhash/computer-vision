@@ -1,7 +1,8 @@
 # Project 5: Recognition using Deep Networks
 **Author:** Krushna Sanjay Sharma  
 **Course:** CS 5330 — Pattern Recognition & Computer Vision  
-**Date:** 2026
+**Date:** 2026  
+**Project Link:** [5-deep-networks](https://github.com/krhash/computer-vision/tree/main/5-deep-networks)
 
 MNIST digit recognition using CNNs and Transformers in PyTorch. Covers training, filter analysis, transfer learning on Greek letters, transformer-based classification, and automated hyperparameter experimentation on Fashion MNIST.
 
