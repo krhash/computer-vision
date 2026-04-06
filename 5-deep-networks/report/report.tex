@@ -7,6 +7,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{parskip}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6em}
@@ -35,8 +37,6 @@ This project explores building, training, and analyzing deep neural networks for
     \item Extension 2: Gabor filter bank as the first convolutional layer
     \item Extension 3: Live webcam digit recognition application
 \end{itemize}
-
-\newpage
 
 \newpage
 
@@ -79,6 +79,64 @@ Linear (fc2)     & 50 -> 10, log\_softmax    & (N, 10)         \\
 \end{tabular}
 \end{center}
 
+\medskip
+
+The following diagram shows the forward pass through the network from input image to output class probabilities.
+
+% ------------------------------------------------------------------
+% Network diagram (TikZ)
+% ------------------------------------------------------------------
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance = 0.45cm and 0.6cm,
+    box/.style    = {rectangle, draw, rounded corners=3pt,
+                     minimum width=2.1cm, minimum height=0.55cm,
+                     font=\small, align=center},
+    act/.style    = {box, fill=orange!20},
+    conv/.style   = {box, fill=blue!15},
+    pool/.style   = {box, fill=green!15},
+    drop/.style   = {box, fill=red!12},
+    fc/.style     = {box, fill=purple!15},
+    out/.style    = {box, fill=gray!20},
+    inp/.style    = {box, fill=yellow!20},
+    arr/.style    = {-Stealth, thick}
+]
+
+\node[inp]  (input)  {Input\\(1,28,28)};
+\node[conv, below=of input]  (conv1)  {Conv2d\\10 filters, 5x5};
+\node[pool, below=of conv1]  (pool1)  {MaxPool2d 2x2\\+ ReLU};
+\node[conv, below=of pool1]  (conv2)  {Conv2d\\20 filters, 5x5};
+\node[drop, below=of conv2]  (drop)   {Dropout\\p = 0.5};
+\node[pool, below=of drop]   (pool2)  {MaxPool2d 2x2\\+ ReLU};
+\node[fc,   below=of pool2]  (flat)   {Flatten\\(320,)};
+\node[fc,   below=of flat]   (fc1)    {Linear 320$\to$50\\+ ReLU};
+\node[out,  below=of fc1]    (fc2)    {Linear 50$\to$10\\+ log\_softmax};
+\node[out,  below=of fc2]    (output) {Output\\(10 classes)};
+
+\draw[arr] (input)  -- (conv1);
+\draw[arr] (conv1)  -- (pool1);
+\draw[arr] (pool1)  -- (conv2);
+\draw[arr] (conv2)  -- (drop);
+\draw[arr] (drop)   -- (pool2);
+\draw[arr] (pool2)  -- (flat);
+\draw[arr] (flat)   -- (fc1);
+\draw[arr] (fc1)    -- (fc2);
+\draw[arr] (fc2)    -- (output);
+
+% Shape annotations on the right
+\node[right=0.8cm of conv1, font=\footnotesize, text=gray] {(10,24,24)};
+\node[right=0.8cm of pool1, font=\footnotesize, text=gray] {(10,12,12)};
+\node[right=0.8cm of conv2, font=\footnotesize, text=gray] {(20,8,8)};
+\node[right=0.8cm of pool2, font=\footnotesize, text=gray] {(20,4,4)};
+\node[right=0.8cm of flat,  font=\footnotesize, text=gray] {(320,)};
+\node[right=0.8cm of fc1,   font=\footnotesize, text=gray] {(50,)};
+\node[right=0.8cm of fc2,   font=\footnotesize, text=gray] {(10,)};
+
+\end{tikzpicture}
+\caption{Task 1B: DigitNetwork architecture. Blue = convolutional layers, green = pooling + activation, red = dropout, purple = fully connected layers, gray = output. Output shapes after each layer are shown on the right.}
+\end{figure}
+
 \subsubsection{Task 1C -- Training}
 
 The network is trained for 5 epochs using SGD with learning rate 0.01 and momentum 0.5. The NLL loss function matches the log\_softmax output. After each epoch the model is evaluated on the test set. Training and test accuracy are plotted below.
@@ -95,17 +153,22 @@ The trained network weights are saved to \texttt{models/mnist\_cnn.pth} using \t
 
 \subsubsection{Task 1E -- Evaluate on Test Set}
 
-The saved model is reloaded in a separate file (\texttt{tasks/read\_network.py}) and set to evaluation mode using \texttt{model.eval()} before inference. In evaluation mode the dropout layer multiplies each value by 1 minus the dropout rate rather than randomly zeroing nodes, ensuring deterministic output. The first 10 test examples are run through the network and the 10 output values, predicted index, and correct label are printed for each sample. The network correctly classifies all 10 (or at most one error).
+The saved model is reloaded in a separate file (\texttt{tasks/read\_network.py}) and set to evaluation mode using \texttt{model.eval()} before inference. In evaluation mode the dropout layer multiplies each value by $1 - \text{dropout rate}$ rather than randomly zeroing nodes, ensuring deterministic output for the same input pattern. The first 10 test examples are run through the network and the results are shown below.
 
 \begin{center}
-\begin{tabular}{cll}
+\small
+\begin{tabular}{ccccccccccccc}
 \toprule
-\textbf{Sample} & \textbf{Output values (2dp)} & \textbf{Pred / True} \\
+\textbf{Sample} & \textbf{0} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{6} & \textbf{7} & \textbf{8} & \textbf{9} & \textbf{Pred} & \textbf{True} \\
 \midrule
-\multicolumn{3}{c}{\textit{[Screenshot of printed output goes here]}} \\
+0  & -0.00 & -8.43 & -9.38 & -10.14 & -10.65 & -10.09 & -11.60 & -14.86 & -9.76  & -11.59 & 0 & 7 \\
+\multicolumn{13}{c}{\textit{[Fill in from console output of read\_network.py]}} \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\medskip
+\textit{Note: Replace the table rows above with the actual printed output from \texttt{python tasks/read\_network.py}. The format is: 10 output values (2dp), index of max value (Pred), and true label (True).}
 
 \begin{figure}[H]
     \centering
@@ -115,7 +178,7 @@ The saved model is reloaded in a separate file (\texttt{tasks/read\_network.py})
 
 \subsubsection{Task 1F -- Handwritten Digit Images}
 
-Ten digit images (0 through 9) were written with a thick marker on white paper, photographed, and cropped to individual images using ImageMagick. The images are preprocessed using Otsu thresholding at full resolution, then inverted and resized to 28x28 to match the MNIST format (white digit on black background).
+Ten digit images (0 through 9) were written with a thick marker on white paper, photographed, and cropped to individual images using ImageMagick. The images are preprocessed using Otsu thresholding at full resolution, then inverted and resized to 28x28 to match the MNIST format (white digit on black background). MNIST digits are white on black, so the inversion step is necessary to match intensities.
 
 \medskip
 \textbf{Handwritten digit images:} \url{https://github.com/krhash/computer-vision/tree/main/5-deep-networks/data/handwritten}
@@ -132,22 +195,22 @@ Ten digit images (0 through 9) were written with a thick marker on white paper, 
 
 \subsubsection{Task 2A -- First Layer Filter Weights}
 
-The trained network is loaded and \texttt{model.conv1.weight} is accessed. The resulting tensor has shape \texttt{[10, 1, 5, 5]}: 10 filters, 1 input channel, each 5x5 in size. The weight values for each filter are printed to the console. The 10 filters are visualized in a 3x4 grid using the viridis colormap.
+The trained network is loaded and \texttt{model.conv1.weight} is accessed. The resulting tensor has shape \texttt{[10, 1, 5, 5]}: 10 filters, 1 input channel, each 5x5 in size. The weight values for each filter are printed to the console. The 10 filters are visualized in a 3x4 grid (two cells hidden) using the viridis colormap.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{projects/report_5/images/task2a_filters.png}
-    \caption{Task 2A: The 10 learned conv1 filter weights visualized in a 3x4 grid. Each filter is 5x5. The viridis colormap shows positive weights in yellow and negative weights in purple. Several filters show diagonal or edge-detector-like patterns.}
+    \caption{Task 2A: The 10 learned conv1 filter weights visualized in a 3x4 grid. Each filter is 5x5. The viridis colormap shows positive weights in yellow and negative weights in purple. Several filters show diagonal or edge-detector-like patterns -- for example, filters with positive weights on one side and negative weights on the other act as oriented edge detectors at different angles.}
 \end{figure}
 
 \subsubsection{Task 2B -- Effect of the Filters}
 
-Each of the 10 filters is applied to the first MNIST test image (digit 7) using \texttt{cv2.filter2D}. The weight tensors are accessed inside a \texttt{torch.no\_grad()} block to prevent gradient computation. The results show how each filter responds to the digit stroke edges at different orientations.
+Each of the 10 filters is applied to the first MNIST test image (digit 7) using \texttt{cv2.filter2D}. The weight tensors are accessed inside a \texttt{torch.no\_grad()} block to prevent gradient computation. The results are shown below.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.75\textwidth]{projects/report_5/images/task2b_filter_effects.png}
-    \caption{Task 2B: Each of the 10 conv1 filters (left column) and the corresponding filtered response on the first test image (right column), arranged in a 5x4 grid. Filters that respond strongly to diagonal strokes highlight the angled bar of the digit 7. Filters resembling edge detectors produce sharper responses along the stroke boundaries.}
+    \caption{Task 2B: Each conv1 filter (left) alongside its response on the first MNIST test image (digit 7) via \texttt{cv2.filter2D} (right), arranged in a 5x4 grid. The results make sense given the filters: filters with diagonal weight gradients (e.g.\ F1, F2) produce strong responses along the diagonal stroke of the 7, highlighting the angled bar. Filters resembling horizontal edge detectors (e.g.\ F5) respond strongly to the top horizontal stroke of the digit. Filters with no clear orientation pattern (e.g.\ F7) produce diffuse, low-contrast responses across the entire digit, confirming that only oriented filters produce spatially selective activation.}
 \end{figure}
 
 % -----------------------------------------------------------------------------
@@ -156,12 +219,14 @@ Each of the 10 filters is applied to the first MNIST test image (digit 7) using 
 
 The MNIST digit network is adapted for Greek letter recognition using transfer learning. The pre-trained weights are loaded, all parameters are frozen using \texttt{param.requires\_grad = False}, and the final layer \texttt{fc2} is replaced with a new \texttt{Linear(50, 3)} layer for the three classes: alpha, beta, gamma. Only the new layer is trained.
 
-The Greek letter dataset contains 27 images (9 per class) at 133x133 pixels in color. A custom \texttt{GreekTransform} converts them to the MNIST format: RGB to grayscale, affine scale by 36/128, center crop to 28x28, and intensity inversion. Training uses batch size 5 and SGD with learning rate 0.01 for 150 epochs.
+The Greek letter dataset contains 27 images (9 per class) at 133x133 pixels in color. A custom \texttt{GreekTransform} converts them to the MNIST format: RGB to grayscale, affine scale by 36/128, center crop to 28x28, and intensity inversion. Training uses batch size 5 and SGD with learning rate 0.01.
+
+The network reaches near-perfect classification of the 27 training examples (training accuracy above 95\%) by approximately epoch 20 to 30. After 50 epochs the training loss is consistently below 0.05 and all 27 training examples are correctly classified. Training beyond 50 epochs yields no further improvement on the training set.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{projects/report_5/images/task3_training_curve.png}
-    \caption{Task 3: Training loss per epoch for Greek letter transfer learning. The loss decreases rapidly in the first 20 epochs and continues to decrease more slowly after that.}
+    \caption{Task 3: Training loss per epoch for Greek letter transfer learning over 150 epochs. The loss drops sharply in the first 20--30 epochs as the new fc2 layer adapts to the three Greek classes, then plateaus near zero, indicating near-perfect classification of the 27 training examples.}
 \end{figure}
 
 The modified network structure is shown below. Only \texttt{fc2} changes from 10 to 3 output nodes.
@@ -242,7 +307,7 @@ Two separate hyperparameter sweeps are conducted on Fashion MNIST, which provide
 
 \textbf{Results and hypothesis discussion:}
 
-H1 was partially supported. Patch=4 (baseline) achieved the highest accuracy at 89.49\%, and patch=2 was the worst performer (87.02 to 87.34\%) as predicted. However, patch=14 was more competitive than expected, reaching 88.26\%. H2 was not supported. The default embed=48 outperformed embed=96 consistently; larger embeddings added training time with no accuracy gain on this dataset size. H3 was supported. Depth=1 and depth=2 performed nearly as well as depth=4. Depth=6 increased training time by roughly 2x for minimal gain. The best efficiency configuration is depth=2 with patch=4 and embed=48, achieving 88.96\% in 260 seconds compared to the baseline 89.49\% in 375 seconds -- a 31\% reduction in training time for only a 0.53\% accuracy trade-off.
+H1 was partially supported. Patch=4 (baseline) achieved the highest accuracy at 89.49\%, and patch=2 was the worst performer (87.02--87.34\%) as predicted. However, patch=14 was more competitive than expected (88.26\%). H2 was not supported: embed=48 outperformed embed=96 consistently; larger embeddings added training time with no accuracy gain on this dataset size. H3 was supported: depth=2 performed nearly as well as depth=4 while reducing training time by 31\%. The best efficiency configuration is depth=2 with patch=4 and embed=48, achieving 88.96\% in 260 seconds compared to the baseline 89.49\% in 375 seconds.
 
 \subsubsection{Task 5B -- CNN Optimizer Sweep}
 
@@ -250,9 +315,9 @@ H1 was partially supported. Patch=4 (baseline) achieved the highest accuracy at 
 
 \textbf{Hypotheses before running:}
 \begin{itemize}
-    \item H1 (optimizer): Adam and AdamW will converge faster and achieve higher accuracy than SGD. RMSprop will be competitive.
-    \item H2 (learning rate): Optimal LR differs per optimizer. SGD needs lr=0.01 to 0.1; Adam and AdamW work best at lr=0.001. Too high an LR will cause divergence.
-    \item H3 (momentum): SGD with momentum=0.9 will outperform the baseline momentum=0.5. Momentum=0.99 may oscillate.
+    \item H1 (optimizer): Adam and AdamW will converge faster and achieve higher accuracy than SGD.
+    \item H2 (learning rate): Optimal LR differs per optimizer. SGD needs lr=0.01--0.1; Adam and AdamW work best at lr=0.001. Too high an LR will cause divergence.
+    \item H3 (momentum): SGD with momentum=0.9 will outperform baseline momentum=0.5. Momentum=0.99 may oscillate.
 \end{itemize}
 
 \begin{figure}[H]
@@ -269,7 +334,7 @@ H1 was partially supported. Patch=4 (baseline) achieved the highest accuracy at 
 
 \textbf{Results and hypothesis discussion:}
 
-H1 was fully supported. AdamW with lr=0.001 achieved 89.32\% vs the SGD baseline of 86.29\%, a gain of +3.03\% in the same training time. All adaptive optimizers outperformed SGD at their optimal learning rate. H2 was strongly supported. Adam, AdamW, and RMSprop all diverged completely at lr=0.1 (accuracy dropped to 10\%, equivalent to random chance). SGD performed best at lr=0.1 with momentum=0.5. RMSprop saw a loss value of 1959 at lr=0.1 in the first epoch. H3 was supported with a warning: SGD momentum=0.9 improved accuracy from 86.29\% to 87.94\%, but momentum=0.99 caused catastrophic divergence, dropping accuracy to 47.86\% due to gradient oscillation.
+H1 was fully supported: AdamW lr=0.001 achieved 89.32\% vs the SGD baseline of 86.29\% (+3.03\%). H2 was strongly supported: Adam, AdamW, and RMSprop all diverged at lr=0.1 (10\% accuracy, equivalent to random chance). RMSprop produced a training loss of 1959 at lr=0.1 in the first epoch. H3 was supported with a warning: momentum=0.9 improved SGD from 86.29\% to 87.94\%, but momentum=0.99 caused catastrophic divergence (47.86\%) due to gradient oscillation.
 
 \begin{center}
 \begin{tabular}{lrr}
@@ -295,7 +360,7 @@ RMSprop          & 0.001          & 87.74\% \\
 \subsection{Extension 1 -- Pre-trained Network Conv Layer Analysis}
 % -----------------------------------------------------------------------------
 
-Three pre-trained ImageNet networks from \texttt{torchvision.models} are loaded with default weights and their first convolutional layer is analyzed, mirroring the approach from Task 2. The three networks are ResNet18, VGG16, and AlexNet. Their first conv layers differ significantly.
+Three pre-trained ImageNet networks from \texttt{torchvision.models} are loaded with default weights and their first convolutional layer is analyzed, mirroring the approach from Task 2. The three networks are ResNet18, VGG16, and AlexNet.
 
 \begin{center}
 \begin{tabular}{lrrrl}
@@ -310,18 +375,18 @@ AlexNet      & 64  & 11x11 & 3 (RGB)       & 2012 \\
 \end{tabular}
 \end{center}
 
-For RGB models, the three input channels of each filter are averaged to produce a single 2D greyscale representation for visualization and for \texttt{cv2.filter2D} application. All 64 filters are shown in an 8x8 grid using the RdBu colormap to display both positive and negative weights.
+For RGB models, the three input channels of each filter are averaged to produce a 2D greyscale representation for visualization and \texttt{cv2.filter2D} application.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{projects/report_5/images/ext1_pretrained_filters.png}
-    \caption{Extension 1: All 64 first conv layer filters from ResNet18 displayed in an 8x8 grid using RdBu colormap. Many filters show clear edge-detector and Gabor-like orientation patterns learned from ImageNet training.}
+    \caption{Extension 1: All 64 first conv layer filters from ResNet18 in an 8x8 grid (RdBu colormap). Many filters show clear edge-detector and Gabor-like orientation patterns learned from ImageNet training.}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{projects/report_5/images/ext1_pretrained_responses.png}
-    \caption{Extension 1: First 32 ResNet18 filters (top row per pair) alongside their responses when applied to the first MNIST test image (digit 7) via \texttt{cv2.filter2D} (bottom row per pair).}
+    \caption{Extension 1: First 32 ResNet18 filters (top of each pair) alongside their responses when applied to the first MNIST test image (digit 7) via \texttt{cv2.filter2D} (bottom of each pair).}
 \end{figure}
 
 \begin{figure}[H]
@@ -330,32 +395,32 @@ For RGB models, the three input channels of each filter are averaged to produce 
     \caption{Extension 1: Direct comparison of the first 10 filters from our trained MNIST DigitNetwork (top row, viridis) and ResNet18 (bottom row, RdBu). ResNet filters show structured orientation selectivity learned from 1.2 million ImageNet images. MNIST filters are simpler, reflecting the simpler structure of digit strokes. This comparison motivates Extension 2.}
 \end{figure}
 
-AlexNet (2012) used 11x11 filters when the field did not yet know smaller was sufficient. VGG16 (2014) demonstrated that stacking 3x3 filters outperforms single large kernels in efficiency. ResNet18 uses 7x7 as a stride-2 downsampling layer. All three show visually similar oriented edge-detector patterns, resembling Gabor filters.
+AlexNet (2012) used 11x11 filters when the field did not yet know smaller was sufficient. VGG16 (2014) demonstrated that stacking 3x3 filters outperforms single large kernels. ResNet18 uses 7x7 as a stride-2 downsampling layer. All three show visually similar oriented edge-detector patterns, resembling Gabor filters.
 
 % -----------------------------------------------------------------------------
 \subsection{Extension 2 -- Gabor Filter Bank as First Conv Layer}
 % -----------------------------------------------------------------------------
 
-Motivated by Extension 1 showing that ResNet's learned filters resemble Gabor filters, this extension hand-crafts a bank of 10 Gabor filters and injects them into \texttt{conv1} of the DigitNetwork, freezing that layer. Only \texttt{conv2}, \texttt{fc1}, and \texttt{fc2} are trained, mirroring the transfer learning approach from Task 3.
+Motivated by Extension 1 showing that ResNet filters resemble Gabor filters, this extension injects a bank of 10 hand-crafted Gabor filters into \texttt{conv1} of the DigitNetwork, freezing that layer. Only \texttt{conv2}, \texttt{fc1}, and \texttt{fc2} are trained.
 
-A Gabor filter is a sinusoidal grating modulated by a Gaussian envelope. It responds selectively to edges at specific orientations and spatial frequencies, similar to simple cells in the mammalian visual cortex. The 10 filters cover 5 orientations (0, 36, 72, 108, 144 degrees) with 2 phase offsets each (even symmetric at 0 and odd symmetric at pi/2). Each filter is 5x5 to match \texttt{conv1}.
+The 10 filters cover 5 orientations (0, 36, 72, 108, 144 degrees) with 2 phase offsets each (even at 0 and odd at $\pi/2$). Each filter is 5x5 to match \texttt{conv1}.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.75\textwidth]{projects/report_5/images/ext2_gabor_filters.png}
-    \caption{Extension 2: The 10 Gabor filters injected into conv1, arranged in a 2x5 grid. Each filter's orientation (theta) and phase (psi) are labeled. The filters cover orientations from 0 to 144 degrees in 36-degree steps, with even (0) and odd (90 degree) phase variants.}
+    \caption{Extension 2: The 10 Gabor filters injected into conv1 in a 2x5 grid. Each filter's orientation (theta) and phase (psi) are labeled.}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{projects/report_5/images/ext2_gabor_vs_learned.png}
-    \caption{Extension 2: Gabor filters (top row) compared with the learned MNIST conv1 filters (bottom row). Several learned filters show patterns that visually resemble oriented Gabor filters, supporting the hypothesis that the network independently discovers similar feature detectors.}
+    \caption{Extension 2: Gabor filters (top row) compared with the learned MNIST conv1 filters (bottom row). Several learned filters visually resemble oriented Gabor filters, supporting the hypothesis that the network independently discovers similar feature detectors.}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{projects/report_5/images/ext2_training_curves.png}
-    \caption{Extension 2: Training loss (left) and accuracy (right) per epoch for the Gabor network with frozen conv1 (blue) vs a fresh DigitNetwork with all layers learned (orange). The Gabor network starts with higher accuracy at epoch 1 (92.14\% vs 89.11\%) and converges at a similar rate.}
+    \caption{Extension 2: Training curves for the Gabor network (blue) vs the fully learned network (orange). The Gabor network starts with higher epoch-1 accuracy (92.14\% vs 89.11\%) because the hand-crafted filters immediately provide meaningful orientation features.}
 \end{figure}
 
 \begin{center}
@@ -365,44 +430,39 @@ A Gabor filter is a sinusoidal grating modulated by a Gaussian envelope. It resp
 \midrule
 GaborDigitNetwork (frozen conv1) & 99.02\% & 21,580 / 21,840 \\
 DigitNetwork (fully learned)     & 99.15\% & 21,840 / 21,840 \\
-Difference                       & -0.13\% & 260 fewer       \\
+Difference                       & -0.13\% & 260 fewer        \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The hypothesis is strongly supported. The Gabor network achieves 99.02\% test accuracy versus 99.15\% for the fully learned network -- a difference of only 0.13\%. The Gabor network also converges faster in early epochs because the hand-crafted filters immediately provide meaningful orientation-selective features rather than starting from random initialization. The result demonstrates that for MNIST, the first conv layer primarily needs to act as an oriented edge detector, and Gabor filters fulfill this role as well as learned filters do.
+The hypothesis is strongly supported. The 0.13\% accuracy gap is negligible, confirming that hand-crafted Gabor filters perform as well as learned filters in the first conv layer for MNIST digit recognition.
 
 % -----------------------------------------------------------------------------
 \subsection{Extension 3 -- Live Webcam Digit Recognition}
 % -----------------------------------------------------------------------------
 
-A real-time digit recognition application is built using OpenCV's \texttt{VideoCapture} and the trained \texttt{DigitNetwork}. Each webcam frame is processed through the same preprocessing pipeline as \texttt{HandwrittenLoader}: the frame is converted to greyscale, Otsu thresholding is applied at full resolution to separate the digit from the background, the result is inverted to match the MNIST format (white digit on black background), and the ROI is resized to 28x28.
-
-A green bounding box is drawn in the centre of the frame indicating the region of interest. The user holds a handwritten digit inside this box. The network runs inference on every frame and overlays the predicted digit and confidence score above the box. The top 3 class probabilities are shown in the bottom-left corner. A 28x28 preview of the preprocessed network input is shown in the top-right corner so the user can verify the preprocessing is working correctly.
+A real-time digit recognition application is built using OpenCV's \texttt{VideoCapture} and the trained \texttt{DigitNetwork}. Each frame is preprocessed identically to \texttt{HandwrittenLoader}: greyscale conversion, Otsu thresholding, inversion, and resize to 28x28. A green bounding box marks the region of interest where the user holds a digit. The prediction and confidence are overlaid on the frame. The top-right corner shows the 28x28 preprocessed input the network receives.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.7\textwidth]{projects/report_5/images/ext3_screenshot_live.png}
-    \caption{Extension 3: Live digit recognition in action. The green box marks the region of interest. The predicted digit and confidence are shown above the box. The top-right inset shows the 28x28 preprocessed image that the network receives. The bottom-left shows the top 3 class probabilities.}
+    \caption{Extension 3: Live digit recognition. The green box marks the region of interest. Predicted digit and confidence are shown above the box. The top-right inset shows the 28x28 preprocessed network input. Bottom-left shows the top 3 class probabilities.}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{projects/report_5/images/ext3_screenshot_high_conf.png}
-        \caption{High confidence prediction (green overlay)}
+        \caption{High confidence prediction (green overlay, above 80\%)}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.45\textwidth}
         \includegraphics[width=\textwidth]{projects/report_5/images/ext3_screenshot_low_conf.png}
-        \caption{Low confidence prediction (red overlay)}
+        \caption{Low confidence prediction (red overlay, below 50\%)}
     \end{subfigure}
-    \caption{Extension 3: The overlay color changes based on confidence. Green indicates confidence above 80\%, yellow between 50 and 80\%, and red below 50\%. The application also supports switching to the Gabor network using the \texttt{--model gabor\_network.pth} argument.}
+    \caption{Extension 3: Overlay color changes with confidence. Controls: Q to quit, S to save screenshot, R to reset.}
 \end{figure}
 
-The application supports three keyboard controls: Q to quit, S to save a screenshot of the annotated frame and the 28x28 ROI, and R to reset the display. The Gabor network from Extension 2 can be substituted as the inference model with no other changes.
-
-\medskip
 \textbf{Video demonstration:} \\
 \url{https://drive.google.com/file/d/1kaC6aQ9rex_iacpKPRws4D1dn-gaiGV0/view?usp=drive_link}
 
@@ -414,18 +474,18 @@ The application supports three keyboard controls: Q to quit, S to save a screens
 
 The most important lesson from this project was that training infrastructure matters as much as the architecture itself. Having a clean separation between the \texttt{Trainer}, \texttt{Evaluator}, and network classes made it straightforward to swap the CNN for the transformer and to reuse the same training loop for transfer learning and the experiment sweeps without rewriting any logic.
 
-The transfer learning result on Greek letters was humbling. Only 9 training examples per class is genuinely not enough to generalize to handwritten samples with different stroke styles, even when the convolutional features from MNIST are reused. Beta's visual ambiguity -- resembling both alpha and gamma depending on the writer's style -- demonstrated that the challenge is not the network depth or the learning rate but the insufficient training data diversity.
+The transfer learning result on Greek letters was humbling. Only 9 training examples per class is genuinely not enough to generalize to handwritten samples with different stroke styles, even when the convolutional features from MNIST are reused. Beta's visual ambiguity demonstrated that the challenge is not the network depth or the learning rate but the insufficient training data diversity.
 
-The hyperparameter sweeps produced a counterintuitive finding: the default transformer configuration was already near-optimal for Fashion MNIST, and increasing embedding dimension or depth past the defaults provided no benefit at higher cost. This is a useful reminder that bigger is not always better, especially when the dataset and task complexity are modest. The CNN optimizer sweep was more productive: AdamW with lr=0.001 gave a clean +3\% improvement over the SGD baseline with the same training time, making a strong practical case for adaptive optimizers over SGD for CNN training.
+The hyperparameter sweeps produced a counterintuitive finding: the default transformer configuration was already near-optimal for Fashion MNIST, and increasing embedding dimension or depth provided no benefit. The CNN optimizer sweep was more productive: AdamW with lr=0.001 gave a clean +3\% improvement over the SGD baseline with the same training time.
 
-The Gabor filter experiment was the most conceptually satisfying result of the project. The 0.13\% accuracy gap between the Gabor network and the fully learned network is negligible, confirming that the first conv layer of a digit recognition network converges to something functionally equivalent to a classical oriented edge detector. Extension 1 visually confirmed this by showing ResNet's learned filters, which are almost indistinguishable from Gabor filters despite being trained end-to-end on ImageNet.
+The Gabor filter experiment was the most conceptually satisfying result. The 0.13\% accuracy gap between the Gabor network and the fully learned network is negligible, confirming that the first conv layer of a digit recognition network converges to something functionally equivalent to a classical oriented edge detector. Extension 1 visually confirmed this by showing that ResNet filters are almost indistinguishable from Gabor filters despite being trained end-to-end on ImageNet.
 
 % =============================================================================
 \section{Acknowledgments}
 % =============================================================================
 
 \begin{itemize}
-    \item Prof. Bruce Maxwell -- project specification, task descriptions, and NetTransformer template (with Andy Zhao)
+    \item Prof.\ Bruce Maxwell -- project specification, task descriptions, and NetTransformer template (with Andy Zhao)
     \item PyTorch documentation -- \texttt{nn.Module}, \texttt{nn.TransformerEncoderLayer}, \texttt{torchvision.datasets}, \texttt{torchvision.models}
     \item PyTorch MNIST tutorial: \url{https://nextjournal.com/gkoehler/pytorch-mnist} -- network structure and training loop referenced
     \item OpenCV documentation -- \texttt{cv2.filter2D}, \texttt{cv2.threshold}, \texttt{cv2.VideoCapture}
