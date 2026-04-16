@@ -72,3 +72,4 @@ Thumbs.db
 __pycache__/
 
 /5-deep-networks/data/FashionMNIST
+/6-uterine-cancer-detection/venv
