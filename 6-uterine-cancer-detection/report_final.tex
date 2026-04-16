@@ -1,0 +1,65 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+
+\begin{document}
+
+\title{Pixels to Prognosis v2: Explainable Deep Learning and Engineered Feature Extraction for Uterine Cancer Detection}
+
+\author{\IEEEauthorblockN{Krushna Sanjay Sharma}
+\IEEEauthorblockA{\textit{Computer Vision Project} \\
+}
+}
+
+\maketitle
+
+\begin{abstract}
+Uterine Corpus Endometrial Carcinoma (UCEC) detection from histopathology images remains a critical challenge due to complex cellular textures and massive data requirements. In this continuation project (v2), we present an improved, interpretable pipeline addressing the severe limitations observed in standard deep learning applications on limited medical data. We introduce a structured transfer-learning routine for Vision Transformers (ViT), inject mathematically defined Gabor filter banks directly into deep Convolutional Neural Networks (ResNet) to bypass naive texture learning, and provide white-box interpretability through Grad-CAM visualizations. By establishing these architectural modifications, our methodology demonstrates highly robust extraction of prognostic features natively engineered for medical imaging.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Deep Learning, Uterine Cancer, Vision Transformers, Gabor Filters, Grad-CAM, Histopathology
+\end{IEEEkeywords}
+
+\section{Introduction}
+Deep learning models, specifically Convolutional Neural Networks (CNNs) and Vision Transformers (ViTs), have revolutionized image classification. However, applying these standard architectures to Uterine Corpus Endometrial Carcinoma (UCEC) histopathology introduces distinct data efficiency and ``black-box'' structural issues. In our preceding v1 project, large unconstrained models exhibited severe overfitting against uncurated patches, entirely lacking the inductive biases necessary to capture complex medical anomalies effectively. 
+
+To resolve these deficits, Pixels to Prognosis v2 pivots entirely away from "blind" learning. We introduce a two-phase progressive unfreezing technique explicitly constraining the ViT architecture, stopping catastrophic forgetting of ImageNet representations while adapting exclusively to UCEC morphologies. Concurrently, we bypass the dependency on random weight initializations by engineering deterministic Gabor filter banks explicitly mapped to the first convolutional layer of a ResNet. This methodology mechanically enforces the extraction of essential spatial frequencies and edges. Finally, we break the black-box classification paradigm by instituting Grad-CAM overlays to ensure visual integrity and accountability of patch-level predictions.
+
+\section{Methodology}
+
+\subsection{Structured ViT Transfer Learning}
+Vision Transformers heavily process structural invariants using multi-head self-attention, yet uniquely demand immense data repositories to converge due to their lack of convolutional inductive biases. To adapt the ViT-B/16 architecture natively onto limited UCEC datasets, we utilized a rigid two-phase transfer learning framework. Phase I explicitly freezes all 12 encoding layers, fine-tuning only the overarching Multilayer Perceptron (MLP) head tailored to binary prognosis. Phase II dynamically isolates and unfreezes the ultimate transformer blocks alongside a decimated learning rate, granting deep structural assimilation strictly bounded to tissue variations. 
+
+\subsection{Gabor Filter Bank Injection}
+Gabor filters effectively simulate the receptive field profiles of the mammalian visual cortex. Instead of demanding a ResNet-34 architecture arbitrarily deduce optimal spatial extraction operations from backpropagation, we constructed 64 independent mathematical Gabor matrices operating across diverse orientations ($\theta \in [0, \pi]$) and varying wavelength thresholds. These fixed kernels subsequently overwrite the entire `conv1` layer of the base ResNet model. By unconditionally freezing this modified input layer, the overarching neural network acts as an exclusive structural interpreter for high-frequency cellular boundary information.
+
+\subsection{Explainability via Grad-CAM}
+Gradient-weighted Class Activation Mapping (Grad-CAM) establishes localization interpretability by tracing feature importance back to structural gradients. We utilize JacobGil's Grad-CAM formulations alongside custom spatial sequence-reshaping mechanisms designed strictly for interpreting ViT attention blocks. This generates standardized 2D topographical heatmaps overlapping the initial raw image array computationally, visually bridging the gap between pixel data and mathematical decision-making.
+
+\section{Experiments and Hardware}
+
+\subsection{Dataset and Preprocessing}
+The pipeline ingests the CPTAC-UCEC dataset formatted directly as pre-extracted 224$\times$224 pixel 8-bit RGB patches, accumulating nearly 234 GB of raw visual information. To account for distinct dataset imbalance mappings, custom weighted Cross-Entropy parameters dynamically adapt global gradients proportionate to individual target label frequencies dynamically. 
+
+\subsection{Hardware Setup and Optimization}
+Computations are globally executed on an NVIDIA RTX 2080 MAX-Q natively capped at 8 GB of internal VRAM. Due to internal graphics limitations on massive batch sizes, `torch.cuda.amp.autocast()` combined with `GradScaler` operations enforce highly optimized semi-precision (FP16) computational loops drastically curtailing total memory footprints while maintaining stable validation metrics safely.
+
+\section{Output Interpretability}
+Outputs explicitly include continuous benchmarking arrays recording Receiver Operating Characteristic (ROC) bounds natively mapped within 3$\times$N visual grid arrays matching standardized histopathology patches with their precise corresponding heatmap intensity graphs. Visual mapping additionally provides empirical side-by-side matrices contrasting mathematically engineered Gabor kernels with naturally matured ResNet derivatives, visually solidifying the distinct boundaries between arbitrary machine learning and explicit feature engineering. 
+
+\section{Conclusion}
+Pixels to Prognosis v2 validates a fundamentally structured shift towards intentional biological modeling directly integrated inside standard deep learning modules. Through rigorous implementation of Gabor filter matrices, strict ViT unfreezing protocols, and Grad-CAM interpretability visualizations, this pipeline systematically dismantles the inherent unreliability of vanilla classifiers mapped prematurely to complex oncological data frameworks.
+
+\begin{thebibliography}{00}
+\bibitem{cptac} Cancer Imaging Archive, ``CPTAC-UCEC,'' Available: https://www.cancerimagingarchive.net/collection/cptac-ucec/
+\bibitem{resnet} K. He, X. Zhang, S. Ren, and J. Sun, ``Deep Residual Learning for Image Recognition,'' in CVPR, 2016.
+\bibitem{vit} A. Dosovitskiy et al., ``An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale,'' in ICLR, 2021.
+\bibitem{gradcam} R. R. Selvaraju et al., ``Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization,'' in ICCV, 2017.
+\end{thebibliography}
+
+\end{document}

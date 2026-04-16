@@ -13,12 +13,13 @@ from src.data.patch_dataset import UCECPatchDataset
 from src.data.patch_transforms import PatchTransforms
 from src.network.densenet_transfer import PretrainedDenseNet
 from src.network.vit_transfer import PretrainedViT
+from src.network.resnet_transfer import PretrainedResNet
 from src.evaluation.gradcam import GradCAM
 from src.visualization.plotter import Plotter
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Task 2: Grad-CAM Explainability")
-    parser.add_argument("--model", type=str, choices=["densenet", "vit"], required=True)
+    parser.add_argument("--model", type=str, choices=["densenet", "vit", "resnet"], required=True)
     parser.add_argument("--n-samples", type=int, default=5)
     parser.add_argument("--patch-dir", type=str, required=True)
     args, _ = parser.parse_known_args()
@@ -50,13 +51,16 @@ def main():
     if args.model == "densenet":
         model = PretrainedDenseNet(num_classes=2)
         target_layer = "model.features.denseblock4.denselayer16.conv2" # Common final conv in DenseNet121
+    elif args.model == "resnet":
+        model = PretrainedResNet(num_classes=2)
+        target_layer = "model.layer4.2.conv2" # Final conv in ResNet34
     else:
         model = PretrainedViT(num_classes=2)
         target_layer = "model.encoder.layers.11.ln_1" # Last block layernorm in ViT-B/16
         
     weight_path = f"models/{args.model}_transfer.pth"
     try:
-        model.load_state_dict(torch.load(weight_path, map_location=device))
+        model.load_state_dict(torch.load(weight_path, map_location=device), strict=False)
         print(f"Loaded weights from {weight_path}")
     except FileNotFoundError:
         print(f"[WARNING] Weights not found at {weight_path}. Running with pretrained base.")

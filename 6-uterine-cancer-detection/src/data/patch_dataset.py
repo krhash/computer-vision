@@ -20,7 +20,7 @@ class UCECPatchDataset(Dataset):
     Provides methods to split into train, val, and test subsets.
     """
 
-    CLASS_MAP = {"normal": 0, "cancerous": 1}
+    CLASS_MAP = {"normal": 0, "cancerous": 1, "tumor": 1}
 
     def __init__(self, data_samples: List[Tuple[str, int]], transform: Optional[Callable] = None):
         """
@@ -57,8 +57,8 @@ class UCECPatchDataset(Dataset):
             return img, label
         except Exception as e:
             print(f"[ERROR] Failed to load {path}: {e}")
-            # Returns a zero tensor if loading fails
-            return torch.zeros(3, 224, 224), -1
+            # Try loading the next sample instead
+            return self.__getitem__((idx + 1) % len(self))
 
     def _print_class_distribution(self):
         """Prints the underlying class distribution."""

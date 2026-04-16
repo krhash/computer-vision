@@ -42,3 +42,41 @@ class ModelIO:
             print(f"  [ModelIO] Metric improved ({best_metric:.4f} --> {current_metric:.4f}). Saved checkpoint to {filepath}")
             return current_metric
         return best_metric
+
+    @staticmethod
+    def save_resume_checkpoint(
+        model: nn.Module, 
+        optimizer: torch.optim.Optimizer, 
+        scaler: torch.amp.GradScaler, 
+        epoch: int, 
+        best_metric: float, 
+        filepath: str
+    ):
+        """Saves a full state dictionary to resume training seamlessly."""
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        checkpoint = {
+            'epoch': epoch,
+            'model_state': model.state_dict(),
+            'optimizer_state': optimizer.state_dict(),
+            'scaler_state': scaler.state_dict(),
+            'best_metric': best_metric
+        }
+        torch.save(checkpoint, filepath)
+
+    @staticmethod
+    def load_resume_checkpoint(
+        model: nn.Module, 
+        optimizer: torch.optim.Optimizer, 
+        scaler: torch.amp.GradScaler, 
+        filepath: str, 
+        device: torch.device
+    ) -> tuple[int, float]:
+        """Loads a full state dictionary and restores optimizer/scaler state. Returns (start_epoch, best_metric)."""
+        if os.path.exists(filepath):
+            checkpoint = torch.load(filepath, map_location=device)
+            model.load_state_dict(checkpoint['model_state'])
+            optimizer.load_state_dict(checkpoint['optimizer_state'])
+            scaler.load_state_dict(checkpoint['scaler_state'])
+            print(f"  [ModelIO] Resumed from checkpoint {filepath} at Epoch {checkpoint['epoch']} (Best Metric: {checkpoint['best_metric']:.4f})")
+            return checkpoint['epoch'] + 1, checkpoint['best_metric']
+        return 1, 0.0

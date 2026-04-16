@@ -33,6 +33,19 @@ class PretrainedResNet(nn.Module):
         in_features = self.model.fc.in_features
         self.model.fc = nn.Linear(in_features, num_classes)
         
+    def unfreeze_last_n_blocks(self, n: int):
+        """
+        Unfreezes the last n macro layers of ResNet.
+        
+        Args:
+            n (int): Number of blocks to unfreeze (from layer4 down to layer1).
+        """
+        blocks = [self.model.layer1, self.model.layer2, self.model.layer3, self.model.layer4]
+        for i in range(len(blocks) - n, len(blocks)):
+            if i >= 0:
+                for param in blocks[i].parameters():
+                    param.requires_grad = True
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the network.

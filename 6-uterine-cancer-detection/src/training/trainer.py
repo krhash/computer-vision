@@ -45,10 +45,10 @@ class Trainer:
         self.log_interval = log_interval
         
         # Scaler for mixed precision
-        # On CPU, AMP scaler isn't strictly necessary or fully supported in the same way, but 
-        # torch.amp.GradScaler now supports it loosely, typically mapped to cuda contexts.
         is_cuda = self.device.type == 'cuda'
         self.scaler = torch.amp.GradScaler('cuda' if is_cuda else 'cpu')
+        
+        print(f"[Trainer] Initialized on device: {self.device.type.upper()} | AMP enabled: {is_cuda}", flush=True)
 
     def train_epoch(self, dataloader: DataLoader, epoch_num: int) -> Dict[str, float]:
         """
@@ -67,6 +67,9 @@ class Trainer:
         total_samples = 0
         
         start_time = time.time()
+        num_batches = len(dataloader)
+        
+        print(f"[Trainer] Epoch {epoch_num} starting ({num_batches} batches to process)...", flush=True)
 
         for batch_idx, (inputs, targets) in enumerate(dataloader):
             inputs = inputs.to(self.device, non_blocking=True)
@@ -94,15 +97,15 @@ class Trainer:
             if (batch_idx + 1) % self.log_interval == 0:
                 cur_loss = running_loss / total_samples
                 cur_acc = correct_preds / total_samples
-                print(f"Epoch [{epoch_num}] Batch [{batch_idx+1}/{len(dataloader)}] "
-                      f"Loss: {cur_loss:.4f} Acc: {cur_acc:.4f}")
+                print(f"  --> Epoch [{epoch_num}] Batch [{batch_idx+1}/{num_batches}] "
+                      f"Loss: {cur_loss:.4f} Acc: {cur_acc:.4f}", flush=True)
 
         end_time = time.time()
         
         epoch_loss = running_loss / max(total_samples, 1)
         epoch_acc = correct_preds / max(total_samples, 1)
         
-        print(f"--- Epoch {epoch_num} Summary: Loss={epoch_loss:.4f}, Acc={epoch_acc:.4f}, Time={end_time - start_time:.2f}s ---")
+        print(f"--- Epoch {epoch_num} Summary: Loss={epoch_loss:.4f}, Acc={epoch_acc:.4f}, Time={end_time - start_time:.2f}s ---", flush=True)
         
         return {
             "loss": epoch_loss,

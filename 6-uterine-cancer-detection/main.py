@@ -16,8 +16,7 @@ def parse_args():
     )
     parser.add_argument(
         "--task",
-        type=str,
-        help="Which task to run: 1 (Transfer ViT), 2 (Grad-CAM), 3 (Gabor ResNet), or all."
+        help="Which task to run: 1 (Transfer ViT), 2 (Grad-CAM), 3 (Gabor ResNet), 4 (Train Baselines), or all."
     )
     
     # If no arguments are provided, print help and exit
@@ -47,6 +46,12 @@ def run_task3():
     import tasks.task3_gabor_resnet as t3
     t3.main()
 
+def run_task4():
+    """Delegates to Task 4 orchestrator."""
+    print("--- Running Task 4: Train CNN Baselines ---")
+    import tasks.task4_train_baselines as t4
+    t4.main()
+
 
 def main():
     """Main execution point."""
@@ -58,10 +63,13 @@ def main():
         run_task2()
     elif args.task == "3":
         run_task3()
+    elif args.task == "4":
+        run_task4()
     elif args.task == "all":
         run_task1()
         run_task2()
         run_task3()
+        run_task4()
     else:
         print(f"Error: Invalid task '{args.task}' specified.\n")
         parser.print_help()

@@ -29,6 +29,39 @@ class PretrainedDenseNet(nn.Module):
         in_features = self.model.classifier.in_features
         self.model.classifier = nn.Linear(in_features, num_classes)
         
+    def unfreeze_last_n_blocks(self, n: int):
+        """
+        Unfreezes the last n denseblocks of DenseNet.
+        
+        Args:
+            n (int): Number of denseblocks to unfreeze.
+        """
+        blocks = [
+            self.model.features.denseblock1,
+            self.model.features.denseblock2,
+            self.model.features.denseblock3,
+            self.model.features.denseblock4
+        ]
+        
+        # Always unfreeze the final norm layer to be safe
+        for param in self.model.features.norm5.parameters():
+            param.requires_grad = True
+            
+        for i in range(len(blocks) - n, len(blocks)):
+            if i >= 0:
+                for param in blocks[i].parameters():
+                    param.requires_grad = True
+        
+        transitions = [
+            self.model.features.transition1,
+            self.model.features.transition2,
+            self.model.features.transition3
+        ]
+        for i in range(len(transitions) - n + 1, len(transitions)):
+            if i >= 0:
+                for param in transitions[i].parameters():
+                    param.requires_grad = True
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the network.
