@@ -32,25 +32,20 @@ def parse_args():
 def run_task1():
     """Delegates to Task 1 orchestrator."""
     print("--- Running Task 1: Transfer ViT ---")
-    # import tasks.task1_transfer_vit as t1
-    # t1.main()
-    print("Task 1 placeholder.")
-
+    import tasks.task1_transfer_vit as t1
+    t1.main()
 
 def run_task2():
     """Delegates to Task 2 orchestrator."""
     print("--- Running Task 2: Grad-CAM Analysis ---")
-    # import tasks.task2_gradcam as t2
-    # t2.main()
-    print("Task 2 placeholder.")
-
+    import tasks.task2_gradcam as t2
+    t2.main()
 
 def run_task3():
     """Delegates to Task 3 orchestrator."""
     print("--- Running Task 3: Gabor ResNet ---")
-    # import tasks.task3_gabor_resnet as t3
-    # t3.main()
-    print("Task 3 placeholder.")
+    import tasks.task3_gabor_resnet as t3
+    t3.main()
 
 
 def main():
