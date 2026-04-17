@@ -73,6 +73,13 @@ def main():
         
     model = model.to(device)
     model.eval()
+    
+    # CRITICAL: Grad-CAM inherently relies on PyTorch's computational graph to calculate 
+    # backwards gradients from the output to the target layer.
+    # Because our Transfer architectures inherently freeze their backbones upon instantiation,
+    # we must forcefully unlock gradients here so PyTorch can trace the backward pass.
+    for param in model.parameters():
+        param.requires_grad = True
 
     cam_analyzer = GradCAM(model, target_layer)
 
