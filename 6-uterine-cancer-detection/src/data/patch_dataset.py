@@ -16,8 +16,17 @@ Image.MAX_IMAGE_PIXELS = None
 
 class UCECPatchDataset(Dataset):
     """
-    Dataset class for loading pre-extracted UCEC patches.
-    Provides methods to split into train, val, and test subsets.
+    Dataset class for loading pre-extracted UCEC histopathology patches.
+    
+    Purpose:
+        Serves as the foundational data ingestion layer for the entire PyTorch pipeline, handling 
+        image retrieval, dynamic augmentation transformations, and fault-tolerant loading of PNGs.
+        
+    Steps Performed:
+        1. Indexes available patches from the target directory mapping "normal"/"cancerous".
+        2. Conducts rigorous stratified Train/Val/Test splitting via scikit-learn.
+        3. Lazily loads PIL images into memory during training to respect RAM limits.
+        4. Recursively skips and rescues corrupted image loads during training loop iterations.
     """
 
     CLASS_MAP = {"normal": 0, "cancerous": 1, "tumor": 1}

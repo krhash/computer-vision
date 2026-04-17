@@ -12,7 +12,15 @@ from typing import List, Dict
 class Plotter:
     """
     Stateless utility class encapsulating all plotting constraints for standard deliverables.
-    Saves outputs directly to the parameterized filename.
+    
+    Purpose:
+        Automates graphical data execution, standardizes chart visual styling rules (colors, scaling, markers), 
+        and keeps pure matplotlib backend dependencies totally isolated from core network processing logic.
+        
+    Steps Performed:
+        1. Automatically verifies/constructs the existence of target `outputs/` directory paths prior to physical block writes.
+        2. Re-maps complex n-dimensional array results into `seaborn`/`matplotlib` compliant visual axes constraints.
+        3. Safely executes raw file system dumps (`plt.savefig()`) immediately flushing internal Python memory contexts thereafter.
     """
 
     @staticmethod
@@ -26,6 +34,16 @@ class Plotter:
         train_accs: List[float], val_accs: List[float], 
         filename: str
     ):
+        """
+        Generates and saves a dual-axis side-by-side plot for Training vs Validation Loss and Accuracy.
+        
+        Args:
+            train_losses (List[float]): Historical array of training loss floats.
+            val_losses (List[float]): Historical array of validation loss floats.
+            train_accs (List[float]): Historical array of training accuracy percentages [0,1].
+            val_accs (List[float]): Historical array of validation accuracy percentages [0,1].
+            filename (str): The desired output file path for the .png visualization.
+        """
         Plotter._ensure_dir(filename)
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
         
@@ -57,6 +75,16 @@ class Plotter:
 
     @staticmethod
     def plot_roc_curve(fpr: np.ndarray, tpr: np.ndarray, auc: float, model_name: str, filename: str):
+        """
+        Generates and saves a Receiver Operating Characteristic (ROC) curve graph.
+        
+        Args:
+            fpr (np.ndarray): False Positive Rates from sklearn's roc_curve.
+            tpr (np.ndarray): True Positive Rates from sklearn's roc_curve.
+            auc (float): The calculated Area Under Curve scalar.
+            model_name (str): Label identity of the model to display in the legend.
+            filename (str): Target output filepath.
+        """
         Plotter._ensure_dir(filename)
         plt.figure(figsize=(7, 6))
         plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'{model_name} (AUC = {auc:.3f})')
@@ -73,6 +101,14 @@ class Plotter:
 
     @staticmethod
     def plot_confusion_matrix(cm: np.ndarray, class_names: List[str], filename: str):
+        """
+        Generates a visually annotated heatmap style Confusion Matrix plot.
+        
+        Args:
+            cm (np.ndarray): 2x2 confusion matrix array from sklearn.
+            class_names (List[str]): Categorical labels representing the axes (e.g. ['Normal', 'Cancerous']).
+            filename (str): Target output filepath.
+        """
         Plotter._ensure_dir(filename)
         plt.figure(figsize=(6, 5))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -94,8 +130,16 @@ class Plotter:
         filename: str
     ):
         """
-        Plots a 3xN grid overlaying the target patches.
-        Images are expected to be properly un-normalized or processed RGB ready for matplotlib.
+        Plots a 3xN grid overlaying the target patches for robust Grad-CAM Explainability analysis.
+        Images are inherently formatted as RGB arrays ready for matplotlib.
+        
+        Args:
+            images (List[np.ndarray]): Original, un-normalized histology patches.
+            heatmaps (List[np.ndarray]): Raw JET colormapped generated Grad-CAM heatmaps.
+            overlays (List[np.ndarray]): Seamlessly blended heatmap/photo composite images.
+            labels (List[int]): The true ground-truth binary labels per image.
+            predictions (List[int]): The network's raw binary prediction values.
+            filename (str): Target output filepath.
         """
         Plotter._ensure_dir(filename)
         n = len(images)
@@ -130,8 +174,11 @@ class Plotter:
     @staticmethod
     def plot_gabor_filters(filters: List[np.ndarray], filename: str):
         """
-        Plots up to 64 Gabor filters in an 8x8 grid.
-        filters: List of 2D kernel arrays.
+        Traces and visualizes up to 64 generated Gabor filters within a cohesive 8x8 tiled grid sequence.
+        
+        Args:
+            filters (List[np.ndarray]): Spatial 2D kernel float arrays forming the Gabor bank.
+            filename (str): Target output filepath.
         """
         Plotter._ensure_dir(filename)
         n = min(len(filters), 64)
@@ -154,6 +201,15 @@ class Plotter:
 
     @staticmethod
     def plot_gabor_vs_resnet(gabor_filters: List[np.ndarray], learned_filters: List[np.ndarray], filename: str):
+        """
+        Charts a side-by-side array isolating the organic data-driven kernels inferred natively by ResNet
+        versus the strictly mapped mathematical orientation filters dictated by the Gabor bank.
+        
+        Args:
+            gabor_filters (List[np.ndarray]): The engineered mathematical filters.
+            learned_filters (List[np.ndarray]): The raw weights extracted directly from ResNet conv1.
+            filename (str): Target output filepath.
+        """
         Plotter._ensure_dir(filename)
         n = min(len(gabor_filters), len(learned_filters), 8) # Plot top 8 for comparison
         
@@ -178,6 +234,13 @@ class Plotter:
 
     @staticmethod
     def plot_benchmark_table(results_dict: Dict[str, float], filename: str):
+        """
+        Generates the absolute final cross-model benchmark architecture chart.
+        
+        Args:
+            results_dict (Dict[str, float]): A dictionary mapping the String model name to its maximal accuracy scalar.
+            filename (str): Target output filepath.
+        """
         Plotter._ensure_dir(filename)
         models = list(results_dict.keys())
         scores = list(results_dict.values())

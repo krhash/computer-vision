@@ -10,7 +10,15 @@ from torchvision.models import densenet121, DenseNet121_Weights
 class PretrainedDenseNet(nn.Module):
     """
     DenseNet-121 architecture modified for classification.
-    Used as the primary CNN baseline from the prior project.
+    
+    Purpose:
+        Functions as the dense heavy-duty baseline model spanning from prior project iterations, 
+        sustaining ultimate feature richness through deeply integrated layer concatenations via transition structures.
+        
+    Steps Performed:
+        1. Fetches DenseNet-121 structure aligned with external Torch ImageNet priors.
+        2. Dynamically replaces the terminal densification classifier block mapping.
+        3. Houses the modular unlocking logic to securely toggle grouped parameter states exclusively on `denseblock` sequences and intermediate `transition` pooling modules.
     """
     
     def __init__(self, num_classes: int = 2):

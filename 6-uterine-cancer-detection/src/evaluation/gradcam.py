@@ -13,8 +13,17 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 
 class GradCAM:
     """
-    Grad-CAM wrapper for generating Class Activation Maps efficiently across
-    different model architectures. Incorporates an automatic transformer fallback reshape.
+    Grad-CAM wrapper for generating Class Activation Maps efficiently across different model architectures.
+    
+    Purpose:
+        Enables human-readable explainability mappings over "black box" neural network 
+        decisions without requiring code structural hooks or architectural rewrites.
+        
+    Steps Performed:
+        1. Dynamically navigates a given network's tree to locate target intermediate activation layers.
+        2. Generates an automatic 2D reshaping fallback specifically designed for Vision Transformer (ViT) sequence tensors.
+        3. Ingests raw tensors, traces their gradient backwards using PyTorch's execution graph safely.
+        4. Overlays structural heat signatures natively onto unmodified histology inputs using JET color maps.
     """
 
     def __init__(self, model: nn.Module, target_layer_name: str):

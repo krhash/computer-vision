@@ -12,6 +12,16 @@ from typing import Optional, Dict
 class Trainer:
     """
     Handles the standard training epoch loop, optimized with Automatic Mixed Precision (AMP).
+    
+    Purpose:
+        Encapsulates the raw PyTorch backpropagation mechanisms, offloading gradient 
+        scaling and hardware mapping from the task orchestrators.
+        
+    Steps Performed:
+        1. Initializes the `CrossEntropyLoss` function (with optional dataset imbalance weights).
+        2. Triggers the AMP `GradScaler` for lightning-fast memory-efficient `float16` forward passes.
+        3. Iterates over the PyTorch `DataLoader`, casting tensors natively to GPU parameters.
+        4. Executes `scaler.step(optimizer)` and securely aggregates tracking logic for historical metrics.
     """
 
     def __init__(

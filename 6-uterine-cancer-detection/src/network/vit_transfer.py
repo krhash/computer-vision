@@ -10,7 +10,16 @@ from torchvision.models import vit_b_16, ViT_B_16_Weights
 class PretrainedViT(nn.Module):
     """
     Vision Transformer (ViT-B/16) architecture modified for fine-tuning.
-    Pre-trained on ImageNet. Allows for progressive unfreezing of transformer blocks.
+    
+    Purpose:
+        Serves as the cutting-edge baseline against CNNs, leveraging global-attention 
+        mechanisms across histology patches rather than localized sliding window convolutions.
+        
+    Steps Performed:
+        1. Ingests a pre-trained ViT-B/16 instance initialized on ImageNet parameters.
+        2. Forcefully freezes all parameter gradients to lock native ImageNet representation weights.
+        3. Strips and replaces the network's terminal classification head (`model.heads.head`) for target binary detection.
+        4. Exposes `unfreeze_last_n_blocks()` to progressively unlock the trailing transformer encoder layers logically, preventing catastrophic forgetting.
     """
     
     def __init__(self, num_classes: int = 2):

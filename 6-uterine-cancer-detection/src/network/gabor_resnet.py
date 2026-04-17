@@ -11,7 +11,16 @@ from src.utils.gabor_bank import GaborFilterBank
 class GaborResNet(nn.Module):
     """
     ResNet-34 architecture injected with a hand-crafted Gabor filter bank in conv1.
-    conv1 is frozen, while subsequent layers remain trainable.
+    
+    Purpose:
+        Tests the core research hypothesis that biological/mathematical spatial orientation textures natively outperform 
+        randomly initialized weights regarding early-stage dense medical histology ingestion.
+        
+    Steps Performed:
+        1. Generates exactly 64 deterministic Gabor wavelet filters at deliberately staggering frequencies and polar orientations.
+        2. Statically overwrites and binds `conv1.weight` of the standard ResNet-34, dropping the classic generic kernels.
+        3. Locks `conv1` parameters seamlessly (`requires_grad=False`) converting the tensor block into a permanently fixed mathematical map.
+        4. Sustains the subsequent residual chains explicitly to compute downstream projections purely off Gabor-processed feature volumes.
     """
     
     def __init__(self, num_classes: int = 2, num_filters: int = 64, kernel_size: int = 7):

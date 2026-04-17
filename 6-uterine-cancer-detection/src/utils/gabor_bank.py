@@ -10,6 +10,16 @@ from typing import List
 class GaborFilterBank:
     """
     Generates a bank of Gabor filters structured to substitute early convolutional layers.
+    
+    Purpose:
+        Bridges biological vision processing mathematical models with deep learning tensor convolutions,
+        providing strict spatial-frequency wavelet textures bypassing standard CNN randomization.
+        
+    Steps Performed:
+        1. Maps deterministic algorithmic parameter grids (sigma, lambda, theta, gamma).
+        2. Actuates OpenCV (`cv2.getGaborKernel`) to explicitly render 2D spatial float tensors.
+        3. Stacks 2D kernels homogeneously across RGB channel boundaries for 3D tensor volume creation.
+        4. Provides dynamic visual normalization/rendering functions strictly for Plotter ingestion.
     """
     
     def __init__(self, n_filters: int = 64, kernel_size: int = 7, in_channels: int = 3):

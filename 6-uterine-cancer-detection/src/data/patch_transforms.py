@@ -10,7 +10,15 @@ from typing import Callable
 class PatchTransforms:
     """
     A factory class for obtaining training and validation image transformations.
-    Applies standard ImageNet normalization and relevant augmentations.
+    
+    Purpose:
+        Centralizes image augmentation and mathematical normalization logic, guaranteeing 
+        all tensor shapes and matrix bounds strictly match exactly what PyTorch pre-trained models expect.
+        
+    Steps Performed:
+        1. Declares canonical ImageNet MEAN and STD parameter scalars securely.
+        2. Exposes robust Train sequences applying geometry jitter (Flipping, Rotation, Color).
+        3. Separates analytical Validation/Test sequence pipelines (strictly locked exclusively to Center Cropping without random jitter).
     """
     # ImageNet normalization parameters
     MEAN = [0.485, 0.456, 0.406]

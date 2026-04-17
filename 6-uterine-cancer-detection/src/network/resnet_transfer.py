@@ -10,7 +10,16 @@ from torchvision.models import resnet34, ResNet34_Weights
 class PretrainedResNet(nn.Module):
     """
     ResNet-34 architecture modified for fine-tuning.
-    Pre-trained on ImageNet. Freezes all layers except the final classification head.
+    
+    Purpose:
+        Serves as the primary deep residual convolution baseline, resolving the vanishing 
+        gradient concern while scaling high-level histological texture mapping.
+        
+    Steps Performed:
+        1. Ingests the core ResNet-34 underlying graph with classical ImageNet baseline weights.
+        2. Freezes the entire mathematical foundation tree strictly stabilizing backward gradients.
+        3. Substitutes the terminal Fully Connected layer (`fc`) to correctly project logic to the `num_classes` binary limit.
+        4. Exposes macro blocks (`layer1`-`layer4`) allowing downstream train orchestrators to progressively inject fine-tuning.
     """
     
     def __init__(self, num_classes: int = 2):

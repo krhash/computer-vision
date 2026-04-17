@@ -13,6 +13,16 @@ from typing import Dict, Tuple, List
 class Evaluator:
     """
     Consolidates evaluation logic for standard deep learning classification.
+    
+    Purpose:
+        Serves as the central stateless benchmarking agent, standardizing how 
+        ROC, F1, and Confusion Matrices are generated across the various architecture frameworks.
+        
+    Steps Performed:
+        1. Locks the injected model strictly into `eval()` mode to freeze Dropout/BatchNorm states.
+        2. Sweeps the inference `DataLoader` under `torch.no_grad()` to collect massive scale probability arrays.
+        3. Computes rigorous `sklearn` mathematical aggregations (AUC, Precision, Recall).
+        4. Exposes individual tensor prediction sampling for specific visual plot processing.
     """
 
     def __init__(self, model: nn.Module, device: torch.device):

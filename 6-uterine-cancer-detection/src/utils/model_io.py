@@ -10,17 +10,39 @@ import os
 class ModelIO:
     """
     Handles saving and loading of model weights gracefully.
+    
+    Purpose:
+        Serves as the centralized, fault-tolerant checkpointing engine for the training pipeline, 
+        shielding the system against crashes and enabling long-term iteration continuity.
+        
+    Steps Performed:
+        1. Validates tracking logic for storing only mathematically superior checkpoints via `best_metric`.
+        2. Deep-saves `optimizer_state` and `scaler_state` into comprehensive generic `_resume.pth` artifacts.
+        3. Restores complex dictionary architectures natively, catching missing tensor keys with robust `strict=False` mapping.
     """
     
     @staticmethod
     def save_checkpoint(model: nn.Module, filepath: str):
-        """Saves only the model state dictionary."""
+        """
+        Saves only the pure model state dictionary (weights and biases).
+        
+        Args:
+            model (nn.Module): The PyTorch neural network model to save.
+            filepath (str): The absolute or relative path to the destination .pth file.
+        """
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         torch.save(model.state_dict(), filepath)
 
     @staticmethod
     def load_checkpoint(model: nn.Module, filepath: str, device: torch.device):
-        """Loads weights onto the specified device."""
+        """
+        Loads weights safely onto the specified compute device.
+        
+        Args:
+            model (nn.Module): The PyTorch neural network model architecture.
+            filepath (str): The path to the stored .pth weights file.
+            device (torch.device): The device (CPU/CUDA) to map the tensors to.
+        """
         model.load_state_dict(torch.load(filepath, map_location=device, weights_only=True))
         
     @staticmethod
@@ -53,7 +75,18 @@ class ModelIO:
         filepath: str,
         metrics_history: dict = None
     ):
-        """Saves a full state dictionary to resume training seamlessly."""
+        """
+        Saves a comprehensive full-state dictionary to enable seamless mid-training interruption recovery.
+        
+        Args:
+            model (nn.Module): The PyTorch model to preserve.
+            optimizer (torch.optim.Optimizer): The optimizer (preserves momentum buffers).
+            scaler (torch.amp.GradScaler): Mixed precision scaler (preserves scale factor).
+            epoch (int): The integer index of the most recently completed epoch.
+            best_metric (float): Best evaluation metric recorded thus far.
+            filepath (str): Target destination .pth filepath.
+            metrics_history (dict, optional): Ongoing history arrays of losses/accuracies. Defaults to None.
+        """
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         checkpoint = {
             'epoch': epoch,
@@ -73,7 +106,19 @@ class ModelIO:
         filepath: str, 
         device: torch.device
     ) -> tuple[int, float, dict]:
-        """Loads a full state dictionary and restores optimizer/scaler state. Returns (start_epoch, best_metric, metrics_history)."""
+        """
+        Loads a full state dictionary, restoring model, optimizer, and scaler states perfectly.
+        
+        Args:
+            model (nn.Module): The target architecture to load weights into.
+            optimizer (torch.optim.Optimizer): Target optimizer to rehydrate momentum tensors into.
+            scaler (torch.amp.GradScaler): Target scaler to restore.
+            filepath (str): Path to the saved _resume.pth checkpoint.
+            device (torch.device): Device mapping.
+            
+        Returns:
+            tuple[int, float, dict]: (next_epoch_number, best_validation_metric, metrics_history_dict)
+        """
         if os.path.exists(filepath):
             checkpoint = torch.load(filepath, map_location=device)
             model.load_state_dict(checkpoint['model_state'])
