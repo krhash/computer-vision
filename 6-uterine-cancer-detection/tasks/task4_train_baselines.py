@@ -124,5 +124,12 @@ def main():
     print("\n--- Final Test Metrics ---")
     print(test_metrics)
 
+    y_true, y_pred, y_probs = evaluator._get_predictions(test_loader)
+    
+    from sklearn.metrics import roc_curve
+    if len(set(y_true)) > 1:
+        fpr, tpr, _ = roc_curve(y_true, y_probs)
+        Plotter.plot_roc_curve(fpr, tpr, test_metrics["auroc"], args.model.capitalize(), f"outputs/task4_{args.model}_roc_curve.png")
+
 if __name__ == "__main__":
     main()
