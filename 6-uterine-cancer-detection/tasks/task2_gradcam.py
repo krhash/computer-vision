@@ -19,7 +19,7 @@ from src.visualization.plotter import Plotter
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Task 2: Grad-CAM Explainability")
-    parser.add_argument("--model", type=str, choices=["densenet", "vit", "resnet"], required=True)
+    parser.add_argument("--model", type=str, choices=["densenet", "vit", "resnet", "gabor_resnet"], required=True)
     parser.add_argument("--n-samples", type=int, default=5)
     parser.add_argument("--patch-dir", type=str, required=True)
     args, _ = parser.parse_known_args()
@@ -54,11 +54,17 @@ def main():
     elif args.model == "resnet":
         model = PretrainedResNet(num_classes=2)
         target_layer = "model.layer4.2.conv2" # Final conv in ResNet34
+    elif args.model == "gabor_resnet":
+        from src.network.gabor_resnet import GaborResNet
+        model = GaborResNet(num_classes=2, num_filters=64, kernel_size=7)
+        target_layer = "model.layer4.2.conv2" # Same underlying backbone as ResNet34
     else:
         model = PretrainedViT(num_classes=2)
         target_layer = "model.encoder.layers.11.ln_1" # Last block layernorm in ViT-B/16
         
     weight_path = f"models/{args.model}_transfer.pth"
+    if args.model == "gabor_resnet":
+        weight_path = "models/gabor_resnet.pth"
     try:
         model.load_state_dict(torch.load(weight_path, map_location=device), strict=False)
         print(f"Loaded weights from {weight_path}")
