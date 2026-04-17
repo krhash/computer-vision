@@ -19,6 +19,23 @@ This project extends our prior UCEC (Uterine Corpus Endometrial Carcinoma) cance
 
 ---
 
+## Results
+
+All models were evaluated on a held-out test split of **25,280 patches** from the CPTAC-UCEC dataset (15% stratified split).
+
+| Model | Accuracy | Precision | Recall | F1 Score | AUROC |
+|---|---|---|---|---|---|
+| DenseNet-121 (Transfer) | 95.44% | — | — | 0.9669 | 0.9886 |
+| ResNet-34 (Transfer) | 95.65% | **0.9838** | 0.9559 | 0.9697 | 0.9907 |
+| GaborResNet (Ours) | 96.08% | 0.9737 | **0.9723** | **0.9730** | 0.9918 |
+| ViT-B/16 (Progressive Transfer) | **96.40%** | — | — | **0.9759** | **0.9931** |
+
+> **Key Finding:** The GaborResNet achieves a **+1.64% Recall improvement** over standard ResNet-34 at identical parameter count (~21M), by replacing the first convolutional layer with a frozen Gabor filter bank. Higher Recall directly minimizes false-negative cancer misdiagnoses — the most clinically dangerous error in cancer screening.
+
+> **Best Overall:** The ViT-B/16 with progressive unfreezing achieves the highest accuracy (96.40%) and AUROC (0.9931), leveraging global self-attention across all 196 patch tokens simultaneously.
+
+---
+
 ## Installation Setup
 
 ### 1. Create Virtual Environment
