@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--sigma", type=float, default=4.0)
     parser.add_argument("--gamma", type=float, default=0.5)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--patch-dir", type=str, required=True)
     args, _ = parser.parse_known_args()
     return args
@@ -43,9 +44,9 @@ def main():
         test_transform=PatchTransforms.get_val_transforms()
     )
     
-    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_ds, batch_size=32, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_ds, batch_size=32, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
     baseline_resnet = PretrainedResNet(num_classes=2).to(device)
     for param in baseline_resnet.parameters():
@@ -65,29 +66,41 @@ def main():
     trainer = Trainer(gabor_resnet, opt, device)
     
     best_gabor_acc = 0.0
+    train_losses, val_losses, train_accs, val_accs = [], [], [], []
+    
     for epoch in range(1, args.epochs + 1):
-        trainer.train_epoch(train_loader, epoch)
+        train_metrics = trainer.train_epoch(train_loader, epoch)
         val_acc = Evaluator(gabor_resnet, device).evaluate(val_loader)["accuracy"]
+        
+        train_losses.append(train_metrics["loss"])
+        train_accs.append(train_metrics["accuracy"])
+        val_losses.append(0.0) # Evaluator returns dict without loss, appending 0 for shape matching
+        val_accs.append(val_acc)
+        
         best_gabor_acc = ModelIO.save_if_best(gabor_resnet, val_acc, best_gabor_acc, "models/gabor_resnet.pth")
 
     print("\n--- Loading Best Validation Checkpoint for Testing ---")
     ModelIO.load_checkpoint(gabor_resnet, "models/gabor_resnet.pth", device)
     
+    Plotter.plot_training_curves(train_losses, val_losses, train_accs, val_accs, "outputs/task3_gabor_learning_curves.png")
+
     evaluator = Evaluator(gabor_resnet, device)
     gabor_metrics = evaluator.evaluate(test_loader)
     print("\n[Gabor ResNet Test Metrics]:", gabor_metrics)
-
-    print("\n--- Training Baseline ResNet ---")
-    opt_base = optim.Adam(baseline_resnet.parameters(), lr=1e-4)
-    trainer_base = Trainer(baseline_resnet, opt_base, device)
-    best_base_acc = 0.0
     
-    for epoch in range(1, args.epochs + 1):
-        trainer_base.train_epoch(train_loader, epoch)
-        val_acc = Evaluator(baseline_resnet, device).evaluate(val_loader)["accuracy"]
-        best_base_acc = ModelIO.save_if_best(baseline_resnet, val_acc, best_base_acc, "models/resnet34_transfer.pth")
+    y_true, y_pred, y_probs = evaluator._get_predictions(test_loader)
+    from sklearn.metrics import roc_curve
+    if len(set(y_true)) > 1:
+        fpr, tpr, _ = roc_curve(y_true, y_probs)
+        Plotter.plot_roc_curve(fpr, tpr, gabor_metrics["auroc"], "Gabor ResNet", "outputs/task3_gabor_roc_curve.png")
 
-    ModelIO.load_checkpoint(baseline_resnet, "models/resnet34_transfer.pth", device)
+    print("\n--- Loading Pre-Trained Baseline ResNet for Comparison ---")
+    try:
+        baseline_resnet.load_state_dict(torch.load("models/resnet_transfer.pth", map_location=device), strict=False)
+        print("Successfully loaded Task 4 ResNet Baseline weights.")
+    except FileNotFoundError:
+        print("[WARNING] models/resnet_transfer.pth not found! Using untrained Baseline ResNet.")
+
     evaluator_base = Evaluator(baseline_resnet, device)
     base_metrics = evaluator_base.evaluate(test_loader)
     print("\n[Baseline ResNet Test Metrics]:", base_metrics)

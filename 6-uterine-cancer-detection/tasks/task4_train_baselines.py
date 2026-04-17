@@ -52,9 +52,9 @@ def main():
     weight_1 = total / (2.0 * max(cancerous_count, 1))
     class_weights = torch.tensor([weight_0, weight_1], dtype=torch.float)
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
     # Model definition
     if args.model == "densenet":
@@ -74,21 +74,41 @@ def main():
     optimizer = optim.AdamW(transfer_mgr.get_trainable_params(), lr=args.lr)
     trainer = Trainer(model, optimizer, device, class_weights=class_weights)
     
-    # Attempt Auto Resume
-    start_epoch, best_val_acc = ModelIO.load_resume_checkpoint(model, trainer.optimizer, trainer.scaler, resume_path, device)
-    
     phase1_epochs = args.epochs // 2
+    
+    # Check if we are resuming directly into the middle of Phase 2 logic (Epoch 6 or later saved)
+    # If so, we Must pre-expand the optimizer groups so the loading mechanism doesn't crash mismatch!
+    if os.path.exists(resume_path):
+        chkpt = torch.load(resume_path, map_location=device, weights_only=False)
+        if chkpt['epoch'] > phase1_epochs:
+            transfer_mgr.unfreeze_last_n(args.unfreeze_blocks)
+            trainer.optimizer = optim.AdamW(transfer_mgr.get_trainable_params(), lr=args.lr * 0.1)
+
+    # Attempt Auto Resume
+    start_epoch, best_val_acc, metrics_history = ModelIO.load_resume_checkpoint(model, trainer.optimizer, trainer.scaler, resume_path, device)
+    
+    train_losses = metrics_history.get("train_losses", [])
+    val_losses = metrics_history.get("val_losses", [])
+    train_accs = metrics_history.get("train_accs", [])
+    val_accs = metrics_history.get("val_accs", [])
     
     # Run Phase 1 if not completed
     if start_epoch <= phase1_epochs:
         print("\n--- Phase 1: Training Head Only ---")
         for epoch in range(start_epoch, phase1_epochs + 1):
-            trainer.train_epoch(train_loader, epoch)
+            train_metrics = trainer.train_epoch(train_loader, epoch)
             evaluator = Evaluator(model, device)
             val_metrics = evaluator.evaluate(val_loader)
             
+            train_losses.append(train_metrics["loss"])
+            train_accs.append(train_metrics["accuracy"])
+            val_losses.append(0.0)
+            val_accs.append(val_metrics["accuracy"])
+            
+            metrics_history = {"train_losses": train_losses, "val_losses": val_losses, "train_accs": train_accs, "val_accs": val_accs}
+            
             # Save Resume Checkpoint ALWAYS, and Save Final/Best .pth conditionally
-            ModelIO.save_resume_checkpoint(model, trainer.optimizer, trainer.scaler, epoch, max(best_val_acc, val_metrics["accuracy"]), resume_path)
+            ModelIO.save_resume_checkpoint(model, trainer.optimizer, trainer.scaler, epoch, max(best_val_acc, val_metrics["accuracy"]), resume_path, metrics_history=metrics_history)
             best_val_acc = ModelIO.save_if_best(model, val_metrics["accuracy"], best_val_acc, final_path)
     
     # Move to Phase 2 logically over epochs if not resumed past it
@@ -108,11 +128,18 @@ def main():
             
         phase2_start = max(start_epoch, phase1_epochs + 1)
         for epoch in range(phase2_start, args.epochs + 1):
-            trainer.train_epoch(train_loader, epoch)
+            train_metrics = trainer.train_epoch(train_loader, epoch)
             evaluator = Evaluator(model, device)
             val_metrics = evaluator.evaluate(val_loader)
             
-            ModelIO.save_resume_checkpoint(model, trainer.optimizer, trainer.scaler, epoch, max(best_val_acc, val_metrics["accuracy"]), resume_path)
+            train_losses.append(train_metrics["loss"])
+            train_accs.append(train_metrics["accuracy"])
+            val_losses.append(0.0)
+            val_accs.append(val_metrics["accuracy"])
+            
+            metrics_history = {"train_losses": train_losses, "val_losses": val_losses, "train_accs": train_accs, "val_accs": val_accs}
+            
+            ModelIO.save_resume_checkpoint(model, trainer.optimizer, trainer.scaler, epoch, max(best_val_acc, val_metrics["accuracy"]), resume_path, metrics_history=metrics_history)
             best_val_acc = ModelIO.save_if_best(model, val_metrics["accuracy"], best_val_acc, final_path)
 
     # Final Evaluation
@@ -123,6 +150,8 @@ def main():
     test_metrics = evaluator.evaluate(test_loader)
     print("\n--- Final Test Metrics ---")
     print(test_metrics)
+    
+    Plotter.plot_training_curves(train_losses, val_losses, train_accs, val_accs, f"outputs/task4_{args.model}_learning_curves.png")
 
     y_true, y_pred, y_probs = evaluator._get_predictions(test_loader)
     
