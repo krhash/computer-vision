@@ -35,6 +35,11 @@ def inv_normalize(tensor: torch.Tensor) -> np.ndarray:
 def main():
     args = parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # CRITICAL: Lock the seed so every time we run Task 2 (regardless of the model),
+    # the DataLoader picks the exact same 10 patches! This allows 1:1 visual comparisons.
+    torch.manual_seed(42)
+    np.random.seed(42)
 
     try:
         _, _, test_ds = UCECPatchDataset.create_splits(
@@ -46,7 +51,7 @@ def main():
         print(f"Error: Could not load data from {args.patch_dir}")
         sys.exit(1)
         
-    loader = DataLoader(test_ds, batch_size=args.n_samples * 2, shuffle=True)
+    loader = DataLoader(test_ds, batch_size=args.n_samples * 2, shuffle=False)
 
     if args.model == "densenet":
         model = PretrainedDenseNet(num_classes=2)
