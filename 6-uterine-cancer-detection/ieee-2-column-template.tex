@@ -1,0 +1,298 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Beyond Local Convolution: Vision Transformers and Gabor Priors for Interpretable Uterine Cancer Histopathology}
+
+\author{\IEEEauthorblockN{Krushna Sanjay Sharma}
+\IEEEauthorblockA{Northeastern University \\
+krushnasharma24@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Uterine Corpus Endometrial Carcinoma (UCEC) remains one of the most prevalent gynecological malignancies, with early histological diagnosis being critical for patient outcomes. Prior deep learning approaches rely on localized convolutional receptive fields that miss complex long-range tissue dependencies. We present \textit{Pixels to Prognosis v2}, a reproducible diagnostic pipeline evaluating four architectures on the CPTAC-UCEC dataset: a DenseNet-121 baseline, ResNet-34, a progressive-unfreezing Vision Transformer (ViT-B/16), and a novel GaborResNet replacing the first convolutional layer with a biologically-inspired Gabor filter bank. All models are trained using two-phase transfer learning with Automatic Mixed Precision over 168,531 patches. The ViT achieves 96.40\% accuracy and AUROC of 0.9931, while the GaborResNet (96.08\%) outperforms standard ResNet-34 (95.65\%), validating that structured texture priors improve classification. Deterministic Grad-CAM reveals that CNNs activate contiguous boundary regions, whereas the ViT activates scattered discrete anomalous nuclei. Code is publicly available at \url{https://github.com/krhash/computer-vision/tree/main/6-uterine-cancer-detection}.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Vision Transformers, Histopathology, Uterine Cancer, Grad-CAM, Gabor Filters, Transfer Learning, UCEC, Computational Pathology
+\end{IEEEkeywords}
+
+\section{Introduction}
+The digitalization of pathology has enabled Whole Slide Images (WSIs) to be analyzed computationally at scale. Uterine Corpus Endometrial Carcinoma (UCEC) is the sixth most common cancer in women worldwide \cite{b4}, characterized by distinct morphological alterations: irregular glandular architecture, abnormal nuclear atypia, and loss of cellular polarity in the endometrial lining. Manual pathology review is time-consuming, subject to inter-observer variability, and increasingly infeasible given the growing volume of digitized slides in clinical workflows.
+
+Deep learning has shown considerable promise for automated diagnosis. However, standard Convolutional Neural Networks (CNNs) extract local features via fixed-size sliding kernels, limiting their ability to capture long-range spatial dependencies. In pathology, scattered nuclear irregularities distributed across the entire tissue field often collectively indicate malignancy even when individual local regions appear ambiguous. This is a structural limitation that purely local architectures cannot overcome without impractical depth.
+
+Vision Transformers (ViT)~\cite{b6} address this by applying multi-head self-attention globally over patch sequences, enabling a single attention computation to correlate any two spatial locations simultaneously. However, fine-tuning ViTs on small-to-medium medical datasets risks catastrophic forgetting of pretrained features. We address this with a two-phase progressive unfreezing strategy that first adapts the classification head before gently adjusting the deeper backbone.
+
+Orthogonally, we investigate whether explicitly encoding domain knowledge about tissue texture frequencies into the model architecture can provide performance gains without increasing parameter count. We construct a GaborResNet by replacing the first convolutional layer of ResNet-34 with a frozen bank of Gabor filters covering a range of spatial orientations and frequencies known to characterize pathological tissue structure.
+
+This work makes the following contributions:
+\begin{enumerate}
+    \item A systematic benchmark of four transfer-learning architectures on the CPTAC-UCEC histopathology dataset with consistent training protocols.
+    \item A GaborResNet design demonstrating that domain-grounded spatial-frequency priors improve Recall by 1.64\% at zero additional parameter cost.
+    \item A deterministic Grad-CAM framework enabling pixel-aligned cross-architecture attentional comparison on identical tissue patches.
+    \item Qualitative evidence that ViT and CNN architectures employ fundamentally different diagnostic strategies, with direct clinical implications.
+\end{enumerate}
+
+\subsection{Code Availability}
+The complete PyTorch implementation, including all model architectures, training orchestrators, and Grad-CAM engines, is publicly available at: \url{https://github.com/krhash/computer-vision/tree/main/6-uterine-cancer-detection}. Preprocessing scripts for WSI tiling and tissue masking are maintained separately at: \url{https://github.com/krhash/vit-ucec-detection}.
+
+\section{Related Work}
+
+\subsection{Hierarchical Image Pyramid Transformer (CVPR 2022)}
+Chen et al.~\cite{b1} proposed HIPT, which hierarchically nests self-supervised Vision Transformers across three scales: $16\times16$ patches, $256\times256$ regions, and whole slides, pretrained with DINO. This is the most closely related architecture to our ViT approach. The key insight is that hierarchical attention at multiple granularities captures both cell-level and tissue-architecture-level features. Our work adapts this insight by applying ViT-B/16 at the patch level with supervised fine-tuning via progressive unfreezing, demonstrating that even single-scale attention brings substantial gains over CNN baselines on UCEC tissue.
+
+\subsection{TransPath (MICCAI 2021)}
+Wang et al.~\cite{b2} introduced TransPath, a Swin Transformer pretrained on 268,000 histopathology images via a custom contrastive learning objective designed for pathology domains. TransPath significantly outperformed ImageNet-pretrained ResNets for tissue classification even in low-data regimes, establishing that domain-specific Transformer pretraining produces more transferable representations than general-purpose ImageNet pretraining. This finding motivates our two-phase unfreezing design: by freezing the backbone initially, we protect the ImageNet-pretrained attentional structure while adapting the projection head, simulating partial domain-specific pretraining.
+
+\subsection{Gabor Convolutional Networks (IEEE TIP 2018)}
+Luan et al.~\cite{b3} replaced standard learned CNN filters with Gabor-modulated kernels, showing improved robustness to orientation and scale variations on natural image benchmarks. Since histopathological textures are characterized by specific spatial frequencies that define glandular structure, nuclear density, and stromal patterns, we hypothesize that Gabor priors are even more appropriate for pathology than for natural images. Our GaborResNet validates this hypothesis empirically: Gabor-initialized features improve Recall by 1.64\% and AUROC by 0.0011 over the same backbone with randomly initialized first-layer filters.
+
+\subsection{Grad-CAM (ICCV 2017)}
+Selvaraju et al.~\cite{b9} introduced Gradient-weighted Class Activation Mapping, which backpropagates class-discriminative gradients to the final convolutional layer to produce spatial attribution maps without modifying the architecture. We apply Grad-CAM with a critical extension for ViT: a reshape transform that converts the $196\times768$ sequence tensor back to a $14\times14$ spatial grid before computing attribution, enabling qualitatively comparable heatmaps across fundamentally different architectures.
+
+\section{Methods}
+
+\subsection{Dataset and Preprocessing}
+The CPTAC-UCEC dataset provides diagnostic-quality H\&E-stained WSIs from 70 patients across two tissue classes: normal endometrium and endometrial carcinoma. Using OpenSlide~\cite{b5} with tissue detection via Otsu thresholding on the luminance channel, we extracted non-overlapping $224\times224$ pixel patches at 20$\times$ magnification, discarding patches with tissue coverage below 60\% to exclude uninformative background. The resulting dataset contains 168,531 labeled patches:
+
+\begin{table}[htbp]
+\caption{Dataset Statistics after Tissue Filtering}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Split} & \textbf{Normal} & \textbf{Cancerous} & \textbf{Total} \\
+\midrule
+Train (70\%)  & 32,198  & 85,773  & 117,971 \\
+Val (15\%)    & 6,900   & 18,380  & 25,280  \\
+Test (15\%)   & 6,900   & 18,380  & 25,280  \\
+\midrule
+Total         & 45,998  & 122,533 & 168,531 \\
+\bottomrule
+\end{tabular}
+\label{tab:dataset}
+\end{center}
+\end{table}
+
+A stratified split by patient ID was enforced to prevent data leakage. The class imbalance (72.7\% cancerous) reflects the clinical reality of a CPTAC biopsy cohort; we do not apply oversampling or class weighting, instead relying on model capacity to handle the imbalance, which is validated by the high Recall scores obtained.
+
+Training augmentations include random horizontal/vertical flips, $\pm30°$ rotation, and color jitter (brightness=0.2, contrast=0.2) to discourage H\&E stain-color memorization. All inputs are normalized: $\hat{x} = (x - \mu)/\sigma$ with $\mu = (0.485, 0.456, 0.406)$, $\sigma = (0.229, 0.224, 0.225)$ (ImageNet statistics).
+
+\subsection{Training Objective and Optimization}
+All models minimize binary cross-entropy:
+\begin{equation}
+\mathcal{L} = -\frac{1}{N}\sum_{i=1}^{N}\left[y_i \log \hat{p}_i + (1-y_i)\log(1-\hat{p}_i)\right]
+\label{eq:bce}
+\end{equation}
+where $y_i \in \{0,1\}$ is the ground truth and $\hat{p}_i = \sigma(\mathbf{w}^T \mathbf{z}_i)$ is the predicted probability. The Adam optimizer~\cite{b10} is used with $\beta_1=0.9$, $\beta_2=0.999$, weight decay $\lambda=10^{-4}$. A \texttt{ReduceLROnPlateau} scheduler halves the learning rate when validation loss stagnates for 3 consecutive epochs. All models use batch size 64 with Automatic Mixed Precision (AMP) via \texttt{torch.amp.GradScaler}, casting forward passes to \texttt{float16} to reduce VRAM requirements and enabling larger effective batch sizes on consumer-grade GPUs.
+
+\subsection{Model 1: Progressive Transfer Vision Transformer}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/vit_progressive_training.png}}
+\caption{Two-phase progressive unfreezing strategy for ViT-B/16. Phase 1 trains only the MLP classification head while the full 12-block encoder is frozen. Phase 2 unfreezes the top 4 encoder blocks with a $10\times$ reduced learning rate.}
+\label{fig:vit_training}
+\end{figure}
+
+The ViT-B/16~\cite{b6} partitions each $224\times224$ image into a $14\times14$ sequence of non-overlapping $16\times16$ patches. Each patch is linearly projected to a $d=768$-dimensional embedding. A learnable \texttt{[CLS]} token is prepended and learned 1D positional encodings are added:
+\begin{equation}
+\mathbf{z}_0 = [\mathbf{x}_\text{cls}; \mathbf{x}^1_p\mathbf{E}; \ldots; \mathbf{x}^N_p\mathbf{E}] + \mathbf{E}_\text{pos}, \quad \mathbf{E} \in \mathbb{R}^{(P^2 \cdot C) \times d}
+\end{equation}
+The sequence passes through $L=12$ Transformer encoder blocks, each computing Multi-Head Self-Attention (MHSA) with $h=12$ heads:
+\begin{equation}
+\text{Attention}(\mathbf{Q},\mathbf{K},\mathbf{V}) = \text{softmax}\!\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
+\label{eq:attn}
+\end{equation}
+where $\mathbf{Q} = \mathbf{z}W_Q$, $\mathbf{K} = \mathbf{z}W_K$, $\mathbf{V} = \mathbf{z}W_V$ are linear projections, $d_k=64$ per head. The final \texttt{[CLS]} token is fed to a two-layer MLP classifier.
+
+As shown in Figure~\ref{fig:vit_training}, we apply two-phase progressive unfreezing (Phase 1: head-only, lr=$10^{-4}$, 5 epochs; Phase 2: top-4 blocks unfrozen, lr=$10^{-5}$). This prevents catastrophic forgetting of pretrained attention maps while enabling medical domain adaptation.
+
+\subsection{Models 2 \& 3: CNN Baselines}
+\textbf{ResNet-34}~\cite{b7} learns residual mappings via skip connections:
+\begin{equation}
+\mathbf{y} = \mathcal{F}(\mathbf{x}, \{W_i\}) + \mathbf{x}
+\end{equation}
+enabling gradients to flow through identity shortcuts and training networks with depth 34 without vanishing gradients. \textbf{DenseNet-121}~\cite{b8} extends this, connecting each layer to every subsequent layer within a dense block:
+\begin{equation}
+\mathbf{x}_\ell = H_\ell\!\left([\mathbf{x}_0, \mathbf{x}_1, \ldots, \mathbf{x}_{\ell-1}]\right)
+\end{equation}
+where $[\cdot]$ denotes channel concatenation. This maximizes gradient flow and feature reuse with fewer parameters. Both architectures use pretrained ImageNet weights. Phase 1 warms up the classification head; Phase 2 unfreezes \texttt{layer4} (ResNet) or \texttt{denseblock4+norm5} (DenseNet).
+
+\subsection{Model 4: Texture-Guided GaborResNet}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/gabor_resnet_architecture.png}}
+\caption{GaborResNet architecture. The standard ResNet-34 \texttt{conv1} layer is replaced by a frozen 64-kernel Gabor filter bank encoding structured spatial frequencies. Downstream residual blocks are fully trainable.}
+\label{fig:gabor_arch}
+\end{figure}
+
+A 2D Gabor filter is a sinusoidal plane wave modulated by a Gaussian envelope. It is the product of a Gaussian kernel and a complex sinusoid and is defined as:
+\begin{equation}
+g(x,y;\lambda,\theta,\sigma,\gamma) = \exp\!\left(\!{-\frac{x'^2 + \gamma^2 y'^2}{2\sigma^2}}\right)\cos\!\left(\frac{2\pi x'}{\lambda} + \psi\right)
+\label{eq:gabor}
+\end{equation}
+where $x' = x\cos\theta + y\sin\theta$, $y' = -x\sin\theta + y\cos\theta$, $\lambda$ is the sinusoidal wavelength, $\theta \in [0, \pi)$ is the kernel orientation, $\sigma$ is the standard deviation of the Gaussian envelope, $\gamma$ is the spatial aspect ratio, and $\psi$ is the phase offset.
+
+We generate 64 kernels by sampling $\theta \in \{0, \frac{\pi}{8}, \frac{2\pi}{8}, \ldots, \pi\}$ (8 orientations) and $\sigma \in \{1, 2, 4\}$ (3 frequency scales), with $\lambda = 2\sigma$ and $\gamma = 0.5$, yielding $8 \times 3 \approx 24$ unique filters replicated across input channels to fill all 64 output channels of \texttt{conv1}. These $7\times7$ real-valued kernels are assigned to \texttt{conv1.weight} and \textit{permanently frozen} (\texttt{requires\_grad=False}). The architecture is shown in Figure~\ref{fig:gabor_arch}. All subsequent residual blocks remain fully trainable and learn to classify from this fixed frequency-domain feature representation.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/task3_gabor_bank.png}}
+\caption{The full 64-kernel Gabor filter bank injected into \texttt{conv1}. Filters vary in orientation $\theta$ (rows) and spatial frequency scale $\sigma$ (columns), encoding structured texture priors across all orientations.}
+\label{fig:gabor_bank}
+\end{figure}
+
+\subsection{Grad-CAM Formulation}
+Gradient-weighted Class Activation Mapping~\cite{b9} computes importance weights for the $k$-th feature map $A^k$ with respect to class $c$ by global-average-pooling the gradient of the class score $y^c$:
+\begin{equation}
+\alpha^c_k = \frac{1}{Z}\sum_i\sum_j \frac{\partial y^c}{\partial A^k_{ij}}
+\end{equation}
+The class-discriminative localization map is obtained by a weighted combination followed by ReLU:
+\begin{equation}
+L^c_\text{Grad-CAM} = \text{ReLU}\!\left(\sum_k \alpha^c_k A^k\right)
+\end{equation}
+ReLU retains only features with positive influence on the target class. For ViT, we target \texttt{encoder.layers.11.ln\_1} and apply a reshape transform: the $(N+1) \times d$ output is trimmed of the \texttt{[CLS]} token and reshaped to $14\times14\times d$ before computing attribution. For ResNets, we target \texttt{layer4.2.conv2}; for DenseNet, \texttt{features.norm5}. All runs use \texttt{torch.manual\_seed(42)} with a non-shuffled loader, ensuring identical patch ordering across all models.
+
+\section{Experiments and Results}
+
+\subsection{Overall Performance}
+
+\begin{table}[htbp]
+\caption{Test Set Performance Across All Architectures (25,280 patches)}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Acc.} & \textbf{F1} & \textbf{AUROC} & \textbf{Params} \\
+\midrule
+DenseNet-121   & 95.44\%          & 0.9669        & 0.9886         & $\approx$7M  \\
+ResNet-34      & 95.65\%          & 0.9697        & 0.9907         & $\approx$21M \\
+GaborResNet    & 96.08\%          & 0.9730        & 0.9918         & $\approx$21M \\
+ViT-B/16       & \textbf{96.40\%} & \textbf{0.9759} & \textbf{0.9931} & $\approx$86M \\
+\bottomrule
+\end{tabular}
+\label{tab1}
+\end{center}
+\end{table}
+
+Table~\ref{tab1} summarizes the primary results. The ViT-B/16 achieves the highest accuracy (96.40\%) and AUROC (0.9931), outperforming all CNN baselines. Notably, DenseNet-121 underperforms ResNet-34 despite its denser connectivity and superior feature reuse properties, likely because the 121-layer depth creates a harder optimization landscape requiring more data for convergence than the 34-layer ResNet.
+
+The GaborResNet matches parameter count with ResNet-34 exactly ($\approx$21M) yet consistently outperforms it across all metrics, providing clean evidence that the Gabor prior provides genuine inductive bias rather than extra capacity.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/task5_master_benchmark.png}}
+\caption{Cross-architecture accuracy comparison on the 25,280-patch test split. All models exceed 95\%, with ViT and GaborResNet leading.}
+\label{fig:benchmark}
+\end{figure}
+
+\subsection{Precision, Recall, and Clinical Trade-offs}
+
+\begin{table}[htbp]
+\caption{Precision, Recall, and F1 for ResNet-34 vs. GaborResNet}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUROC} \\
+\midrule
+ResNet-34    & \textbf{0.9838} & 0.9559          & 0.9697          & 0.9907 \\
+GaborResNet  & 0.9737          & \textbf{0.9723} & \textbf{0.9730} & \textbf{0.9918} \\
+\bottomrule
+\end{tabular}
+\label{tab2}
+\end{center}
+\end{table}
+
+Table~\ref{tab2} isolates the most clinically significant trade-off. ResNet-34 achieves higher Precision (0.9838 vs 0.9737) but substantially lower Recall (0.9559 vs 0.9723). In cancer screening, a false negative (cancer classified as normal) carries dramatically higher clinical cost than a false positive: a missed diagnosis delays treatment, potentially allowing disease progression to later, less treatable stages. The GaborResNet's +1.64\% Recall gain at a modest 1.01\% Precision cost represents a clinically favorable trade-off. The simultaneous AUROC improvement (0.9918 vs 0.9907) confirms that this is not a threshold-shifting artifact but a genuine improvement in discriminative ability.
+
+\subsection{Learning Dynamics}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/task1_learning_curves.png}}
+\caption{ViT-B/16 training and validation loss curves. The characteristic inflection at epoch 5 marks the Phase 1$\to$2 transition where the top-4 encoder blocks are unfrozen and the learning rate is reduced $10\times$.}
+\label{fig:lc_vit}
+\end{figure}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/task3_gabor_learning_curves.png}}
+\caption{GaborResNet training dynamics. The frozen Gabor bank produces stable early gradient flow, resulting in smoother convergence compared to a fully trainable ResNet-34 where first-layer weights are randomly initialized.}
+\label{fig:lc_gabor}
+\end{figure}
+
+Figure~\ref{fig:lc_vit} illustrates the two-phase ViT training dynamics. During Phase 1 (epochs 1-5), validation loss decreases gradually as only the head adapts. At epoch 5, the top-4 encoder blocks are unlocked and the learning rate drops by $10\times$, producing a sharp reduction in validation loss as the pretrained attention maps refine to histological features. 
+
+Figure~\ref{fig:lc_gabor} shows the GaborResNet's smoother convergence. Because \texttt{conv1} is frozen from the start, it provides a stable, structured gradient signal to the residual backbone from the first iteration, avoiding the noisy early-training instability common when random first-layer filters produce uninformative feature maps.
+
+\subsection{ROC Analysis}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{projects/report_6/images/task3_gabor_roc_curve.png}}
+\caption{GaborResNet ROC curve (AUROC=0.9918). The curve hugs the top-left corner tightly, indicating strong discrimination across all decision thresholds.}
+\label{fig:roc}
+\end{figure}
+
+The ROC curves demonstrate that all models achieve high discrimination ability (AUROC $>$ 0.98). The GaborResNet achieves AUROC=0.9918, closely approaching the ViT's 0.9931. The area under the ROC curve measures rank discrimination independent of classification threshold, confirming that the Gabor prior improves the model's fundamental ability to separate the score distributions of normal and cancerous patches, not merely its performance at a specific operating point.
+
+\subsection{Explainability Analysis (Grad-CAM)}
+
+\begin{figure*}[htbp]
+\centerline{\includegraphics[width=\textwidth]{projects/report_6/images/combined_gradcam_benchmark.png}}
+\caption{\textbf{Cross-Architecture Grad-CAM Comparison.} \textit{Row 1 (Cancerous tissue):} CNN models (DenseNet, ResNet, GaborResNet) activate broad, contiguous boundary regions around the most prominent structural margins. The ViT activates sparse, multi-focal regions corresponding to scattered nuclear anomalies. \textit{Row 2 (Normal tissue):} CNN activations remain elevated across benign structural edges (false-positive noise), while the ViT correctly suppresses activation throughout non-pathological stroma.}
+\label{fig:gradcam}
+\end{figure*}
+
+Figure~\ref{fig:gradcam} reveals qualitatively distinct attentional strategies between the two families of architectures.
+
+\textbf{CNN behavior (cancerous):} DenseNet, ResNet, and GaborResNet all produce compact, high-intensity activation blobs concentrated on the most prominent structural boundary visible in the patch. This reflects the locality of convolutional kernels: each filter responds to its immediate neighborhood, and deeper layers aggregate these local responses into slightly larger receptive fields, but still fundamentally track the nearest high-contrast structure.
+
+\textbf{ViT behavior (cancerous):} Using global self-attention (Eq.~\ref{eq:attn}), the ViT simultaneously correlates all 196 patch tokens. The resulting heatmap shows multiple small, discrete activation foci distributed across the tissue, each corresponding to a region of nuclear atypia or abnormal glandular patterning. No single dominant boundary dominates; instead, the model accumulates evidence from spatially distributed anomalies.
+
+\textbf{Normal tissue behavior:} On the benign patch (Row 2), all CNN models produce non-trivial activations along normal tissue boundaries, a form of false-positive noise arising because convolutional filters respond to structural edges regardless of their pathological significance. The ViT, by contrast, substantially suppresses its activation map across the entire normal patch, reflecting its learned understanding that uniformly structured, homogeneous tissue does not collectively signal malignancy.
+
+This behavioral difference has direct clinical implications: the ViT's capacity for multi-focal activation enables detection of diffuse nuclear atypia that may span the entire patch, a hallmark of high-grade UCEC, while CNN architectures may miss such patterns when no single dominant lesion boundary is present.
+
+\section{Discussion and Summary}
+
+This work demonstrates that architectural inductive bias fundamentally shapes both quantitative performance and qualitative decision strategy in histopathological deep learning.
+
+\textbf{Gabor Prior Effect:} The GaborResNet result isolates the value of a single design decision: replacing randomly initialized \texttt{conv1} with a fixed Gabor bank (Eq.~\ref{eq:gabor}). At identical parameter count, this yields a +0.43\% accuracy improvement and, more critically, a +1.64\% Recall gain. Tumor texture in UCEC histology is characterized by well-defined spatial frequencies corresponding to glandular spacing, nuclear size distribution, and chromatin pattern regularity, which are exactly the signal classes that Gabor filters are mathematically designed to detect. Random initialization forces the model to discover these frequencies from scratch, which is inefficient given the limited diversity of a single-institution dataset.
+
+\textbf{ViT Superiority:} The ViT's 96.40\% accuracy is the highest achieved, but at a $4\times$ parameter cost ($\approx$86M vs $\approx$21M). This reflects the inherent trade-off: global self-attention over 196 tokens provides superior contextual awareness, but requires substantially more parameters to learn the $W_Q, W_K, W_V$ projection matrices across 12 attention heads and 12 layers. For deployment on resource-constrained edge devices in clinical settings, the GaborResNet represents a more practical choice given its competitive performance at standard CNN scale.
+
+\textbf{Limitations:} All experiments operate at the patch level. Clinical deployment requires slide-level aggregation, ideally via Multiple Instance Learning (MIL) formulations. Additionally, our training and testing data are drawn from a single cohort (CPTAC), and cross-institutional generalization under staining variation has not been validated.
+
+\textbf{Future Work:} The \textbf{Swin Transformer}~\cite{b2} applies shifted-window attention in a hierarchical architecture, reducing self-attention complexity from $\mathcal{O}(N^2)$ to $\mathcal{O}(N)$ while building multiscale feature maps, making it compelling for gigapixel WSI processing. Domain-adaptive pretraining on large pathology corpora (as in TransPath~\cite{b2}) combined with our progressive unfreezing strategy may yield further gains. Finally, extending the Gabor prior across multiple residual blocks rather than only \texttt{conv1} could amplify structural frequency sensitivity throughout the feature hierarchy.
+
+\begin{thebibliography}{00}
+\bibitem{b1} R. J. Chen, C. Chen, Y. Li, T. Y. Chen, A. D. Trister, R. G. Krishnan, and F. Mahmood, ``Scaling Vision Transformers to Gigapixel Images via Hierarchical Self-Supervised Learning,'' in \emph{Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)}, pp. 16144--16155, 2022.
+
+\bibitem{b2} X. Wang, S. Yang, J. Zhang, M. Wang, J. Zhang, W. Huang, X. Han, and Y. Yuille, ``TransPath: Transformer-Based Self-supervised Learning for Histopathological Image Classification,'' in \emph{Proc. Int. Conf. Medical Image Computing and Computer-Assisted Intervention (MICCAI)}, pp. 186--195, 2021.
+
+\bibitem{b3} S. Luan, C. Chen, B. Zhang, J. Han, and J. Liu, ``Gabor Convolutional Networks,'' \emph{IEEE Trans. Image Process.}, vol. 27, no. 9, pp. 4357--4366, Sep. 2018.
+
+\bibitem{b4} F. Bray, M. Laversanne, H. Sung, J. Ferlay, R. L. Siegel, I. Soerjomataram, and A. Jemal, ``Global cancer statistics 2022: GLOBOCAN estimates of incidence and mortality worldwide for 36 cancers in 185 countries,'' \emph{CA: A Cancer Journal for Clinicians}, vol. 74, no. 3, pp. 229--263, 2024.
+
+\bibitem{b5} A. Goode, B. Gilbert, J. Harkes, D. Jukic, and M. Satyanarayanan, ``OpenSlide: A vendor-neutral software foundation for digital pathology,'' \emph{J. Pathology Informatics}, vol. 4, no. 1, p. 27, 2013.
+
+\bibitem{b6} A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, et al., ``An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale,'' in \emph{Proc. Int. Conf. Learning Representations (ICLR)}, 2021.
+
+\bibitem{b7} K. He, X. Zhang, S. Ren, and J. Sun, ``Deep Residual Learning for Image Recognition,'' in \emph{Proc. IEEE/CVF CVPR}, pp. 770--778, 2016.
+
+\bibitem{b8} G. Huang, Z. Liu, L. Van Der Maaten, and K. Q. Weinberger, ``Densely Connected Convolutional Networks,'' in \emph{Proc. IEEE/CVF CVPR}, pp. 4700--4708, 2017.
+
+\bibitem{b9} R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, ``Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization,'' in \emph{Proc. IEEE Int. Conf. Computer Vision (ICCV)}, pp. 618--626, 2017.
+
+\bibitem{b10} D. P. Kingma and J. Ba, ``Adam: A Method for Stochastic Optimization,'' in \emph{Proc. Int. Conf. Learning Representations (ICLR)}, 2015.
+\end{thebibliography}
+
+\end{document}

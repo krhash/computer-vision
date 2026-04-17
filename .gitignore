@@ -49,6 +49,7 @@ Makefile
 !/5-deep-networks/data/greek_train/beta/*.png
 !/5-deep-networks/data/greek_train/gamma/*.png
 !/5-deep-networks/report/images/*.png
+!/6-uterine-cancer-detection/outputs/*.png
 
 # OS files
 .DS_Store
