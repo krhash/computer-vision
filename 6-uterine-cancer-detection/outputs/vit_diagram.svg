@@ -1,0 +1,170 @@
+<svg viewBox="0 0 860 640" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L9,3.5 z" fill="#E65100"/>
+    </marker>
+  </defs>
+
+  <rect width="860" height="640" fill="#FAFAFA"/>
+
+  <!-- ===== PHASE TITLES ===== -->
+  <text x="200" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#1A1A2E">Phase 1: Head Warm-up</text>
+  <text x="200" y="50" text-anchor="middle" font-size="13" fill="#555">(Epochs 1–5)</text>
+
+  <text x="660" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#1A1A2E">Phase 2: Backbone Fine-tuning</text>
+  <text x="660" y="50" text-anchor="middle" font-size="13" fill="#555">(Epochs 6+)</text>
+
+  <!-- ===== LR LABELS ===== -->
+  <text x="28" y="360" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565C0" transform="rotate(-90,28,360)">lr = 1×10⁻⁴</text>
+  <text x="832" y="360" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565C0" transform="rotate(90,832,360)">lr = 1×10⁻⁵</text>
+
+  <!-- ===== TRANSITION BLOCK ===== -->
+  <rect x="352" y="215" width="96" height="110" rx="10" fill="#FFFDE7" stroke="#F9A825" stroke-width="2"/>
+  <text x="400" y="240" text-anchor="middle" font-size="12" font-weight="bold" fill="#E65100">Unfreeze</text>
+  <text x="400" y="257" text-anchor="middle" font-size="12" font-weight="bold" fill="#E65100">top-4</text>
+  <text x="400" y="274" text-anchor="middle" font-size="12" font-weight="bold" fill="#E65100">blocks,</text>
+  <text x="400" y="291" text-anchor="middle" font-size="12" font-weight="bold" fill="#E65100">reduce LR</text>
+  <text x="400" y="308" text-anchor="middle" font-size="12" font-weight="bold" fill="#E65100">by 10×</text>
+  <line x1="355" y1="338" x2="445" y2="338" stroke="#E65100" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- ============================================================ -->
+  <!-- PHASE 1  x=50..340  w=290                                    -->
+  <!-- row h=46, gap=6 => step=52                                   -->
+  <!-- ============================================================ -->
+
+  <!-- MLP Head -->
+  <rect x="50" y="65" width="290" height="46" rx="7" fill="#C8E6C9" stroke="#4CAF50" stroke-width="2"/>
+  <text x="195" y="84" text-anchor="middle" font-size="15" font-weight="bold" fill="#1B5E20">MLP Head</text>
+  <text x="195" y="102" text-anchor="middle" font-size="13" fill="#2E7D32">TRAINABLE</text>
+
+  <!-- CLS Token -->
+  <rect x="50" y="119" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="195" y="142" text-anchor="middle" font-size="14" fill="#444">[CLS] Token</text>
+
+  <!-- Block 12 -->
+  <rect x="50" y="163" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="183" text-anchor="middle" font-size="14" fill="#555">Encoder Block 12</text>
+  <text x="175" y="200" text-anchor="middle" font-size="12" fill="#888">FROZEN (requires_grad=False)</text>
+  <text x="326" y="193" font-size="18" fill="#888">🔒</text>
+
+  <!-- Block 11 -->
+  <rect x="50" y="215" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="235" text-anchor="middle" font-size="14" fill="#555">Encoder Block 11</text>
+  <text x="175" y="252" text-anchor="middle" font-size="12" fill="#888">FROZEN (requires_grad=False)</text>
+  <text x="326" y="245" font-size="18" fill="#888">🔒</text>
+
+  <!-- Block 10 -->
+  <rect x="50" y="267" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="287" text-anchor="middle" font-size="14" fill="#555">Encoder Block 10</text>
+  <text x="175" y="304" text-anchor="middle" font-size="12" fill="#888">FROZEN (requires_grad=False)</text>
+  <text x="326" y="297" font-size="18" fill="#888">🔒</text>
+
+  <!-- Block 9 -->
+  <rect x="50" y="319" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="339" text-anchor="middle" font-size="14" fill="#555">Encoder Block 9</text>
+  <text x="175" y="356" text-anchor="middle" font-size="12" fill="#888">FROZEN (requires_grad=False)</text>
+  <text x="326" y="349" font-size="18" fill="#888">🔒</text>
+
+  <!-- Ellipsis — collapsed blocks 2–8 -->
+  <rect x="50" y="371" width="290" height="46" rx="7" fill="#F9F9F9" stroke="#CCCCCC" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="390" text-anchor="middle" font-size="16" fill="#AAAAAA">· · ·</text>
+  <text x="175" y="408" text-anchor="middle" font-size="12" fill="#BBBBBB">Blocks 2–8  (all FROZEN)</text>
+
+  <!-- Block 1 -->
+  <rect x="50" y="423" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="175" y="443" text-anchor="middle" font-size="14" fill="#555">Encoder Block 1</text>
+  <text x="175" y="460" text-anchor="middle" font-size="12" fill="#888">FROZEN (requires_grad=False)</text>
+  <text x="326" y="453" font-size="18" fill="#888">🔒</text>
+
+  <!-- Positional Encoding -->
+  <rect x="50" y="475" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="195" y="498" text-anchor="middle" font-size="14" fill="#444">Positional Encoding</text>
+
+  <!-- Patch Embedding -->
+  <rect x="50" y="517" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="195" y="540" text-anchor="middle" font-size="14" fill="#444">Patch Embedding (16×16)</text>
+
+  <!-- Phase 1 bracket -->
+  <line x1="38" y1="65"  x2="38" y2="553" stroke="#BDBDBD" stroke-width="1.5"/>
+  <line x1="38" y1="65"  x2="50" y2="65"  stroke="#BDBDBD" stroke-width="1.5"/>
+  <line x1="38" y1="553" x2="50" y2="553" stroke="#BDBDBD" stroke-width="1.5"/>
+
+  <!-- ============================================================ -->
+  <!-- PHASE 2  x=460..750  w=290                                   -->
+  <!-- ============================================================ -->
+
+  <!-- MLP Head -->
+  <rect x="460" y="65" width="290" height="46" rx="7" fill="#C8E6C9" stroke="#4CAF50" stroke-width="2"/>
+  <text x="605" y="84" text-anchor="middle" font-size="15" font-weight="bold" fill="#1B5E20">MLP Head</text>
+  <text x="605" y="102" text-anchor="middle" font-size="13" fill="#2E7D32">TRAINABLE</text>
+
+  <!-- CLS Token -->
+  <rect x="460" y="119" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="605" y="142" text-anchor="middle" font-size="14" fill="#444">[CLS] Token</text>
+
+  <!-- Block 12 UNFROZEN -->
+  <rect x="460" y="163" width="290" height="46" rx="7" fill="#BBDEFB" stroke="#1976D2" stroke-width="2"/>
+  <text x="585" y="183" text-anchor="middle" font-size="14" font-weight="bold" fill="#0D47A1">Encoder Block 12</text>
+  <text x="585" y="200" text-anchor="middle" font-size="13" font-weight="bold" fill="#0D47A1">UNFROZEN</text>
+
+  <!-- Block 11 UNFROZEN -->
+  <rect x="460" y="215" width="290" height="46" rx="7" fill="#BBDEFB" stroke="#1976D2" stroke-width="2"/>
+  <text x="585" y="235" text-anchor="middle" font-size="14" font-weight="bold" fill="#0D47A1">Encoder Block 11</text>
+  <text x="585" y="252" text-anchor="middle" font-size="13" font-weight="bold" fill="#0D47A1">UNFROZEN</text>
+
+  <!-- Block 10 UNFROZEN -->
+  <rect x="460" y="267" width="290" height="46" rx="7" fill="#BBDEFB" stroke="#1976D2" stroke-width="2"/>
+  <text x="585" y="287" text-anchor="middle" font-size="14" font-weight="bold" fill="#0D47A1">Encoder Block 10</text>
+  <text x="585" y="304" text-anchor="middle" font-size="13" font-weight="bold" fill="#0D47A1">UNFROZEN</text>
+
+  <!-- Block 9 UNFROZEN -->
+  <rect x="460" y="319" width="290" height="46" rx="7" fill="#BBDEFB" stroke="#1976D2" stroke-width="2"/>
+  <text x="585" y="339" text-anchor="middle" font-size="14" font-weight="bold" fill="#0D47A1">Encoder Block 9</text>
+  <text x="585" y="356" text-anchor="middle" font-size="13" font-weight="bold" fill="#0D47A1">UNFROZEN</text>
+  <text x="736" y="352" font-size="20">🔥</text>
+
+  <!-- Divider between unfrozen/frozen -->
+  <line x1="460" y1="369" x2="750" y2="369" stroke="#1976D2" stroke-width="1.5" stroke-dasharray="6,3"/>
+
+  <!-- Ellipsis — collapsed blocks 2–8 -->
+  <rect x="460" y="371" width="290" height="46" rx="7" fill="#F9F9F9" stroke="#CCCCCC" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="605" y="390" text-anchor="middle" font-size="16" fill="#AAAAAA">· · ·</text>
+  <text x="605" y="408" text-anchor="middle" font-size="12" fill="#BBBBBB">Blocks 2–8  (all FROZEN)</text>
+
+  <!-- Block 1 FROZEN -->
+  <rect x="460" y="423" width="290" height="46" rx="7" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="585" y="443" text-anchor="middle" font-size="14" fill="#555">Encoder Block 1</text>
+  <text x="585" y="460" text-anchor="middle" font-size="12" fill="#888">FROZEN</text>
+
+  <!-- Positional Encoding -->
+  <rect x="460" y="475" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="605" y="498" text-anchor="middle" font-size="14" fill="#444">Positional Encoding</text>
+
+  <!-- Patch Embedding -->
+  <rect x="460" y="517" width="290" height="36" rx="7" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+  <text x="605" y="540" text-anchor="middle" font-size="14" fill="#444">Patch Embedding (16×16)</text>
+
+  <!-- Phase 2 bracket -->
+  <line x1="822" y1="65"  x2="822" y2="553" stroke="#BDBDBD" stroke-width="1.5"/>
+  <line x1="750" y1="65"  x2="822" y2="65"  stroke="#BDBDBD" stroke-width="1.5"/>
+  <line x1="750" y1="553" x2="822" y2="553" stroke="#BDBDBD" stroke-width="1.5"/>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="50"  y="572" width="16" height="14" rx="3" fill="#C8E6C9" stroke="#4CAF50" stroke-width="1.5"/>
+  <text x="72"  y="584" font-size="13" fill="#333">Trainable</text>
+
+  <rect x="160" y="572" width="16" height="14" rx="3" fill="#BBDEFB" stroke="#1976D2" stroke-width="1.5"/>
+  <text x="182" y="584" font-size="13" fill="#333">Unfrozen (Phase 2)</text>
+
+  <rect x="330" y="572" width="16" height="14" rx="3" fill="#EEEEEE" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="5,2"/>
+  <text x="352" y="584" font-size="13" fill="#333">Frozen</text>
+
+  <rect x="420" y="572" width="16" height="14" rx="3" fill="#FFFDE7" stroke="#F9A825" stroke-width="1.5"/>
+  <text x="442" y="584" font-size="13" fill="#333">Phase transition</text>
+
+  <!-- Captions -->
+  <text x="195" y="610" text-anchor="middle" font-size="12" fill="#888">Phase 1: Head Warm-up (Epochs 1–5)</text>
+  <text x="605" y="610" text-anchor="middle" font-size="12" fill="#888">Phase 2: Backbone Fine-tuning (Epochs 6+)</text>
+
+</svg>
