@@ -1,6 +1,7 @@
 # Beyond Local Convolution: Vision Transformers and Gabor Priors for Interpretable Uterine Cancer Histopathology
 
 **Author:** Krushna Sanjay Sharma
+
 **Recording:** [https://drive.google.com/file/d/1Jn7TysXmK7UEDK5XidVOyCjuQxqUNJt5/view?usp=drive_link](https://drive.google.com/file/d/1Jn7TysXmK7UEDK5XidVOyCjuQxqUNJt5/view?usp=drive_link)
 
 ---
